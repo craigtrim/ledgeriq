@@ -36,6 +36,7 @@ import os
 import sys
 import boto3
 import logging
+from logging import Logger
 from json import dumps, loads
 from urllib.parse import unquote
 from botocore.exceptions import ClientError
@@ -65,32 +66,13 @@ NULL_RESPONSE: dict = {
 # Logging Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 
-def configure_logger(name: str) -> logging.Logger:
-    """
-    Configure logger with structured output for CloudWatch.
-
-    Args:
-        name: Logger name (usually __name__)
-
-    Returns:
-        Configured logger instance
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-
-    # Only add handler if none exist (avoid duplicate handlers)
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    return logger
+def configure_logger(function_name: str) -> Logger:
+    root_logger = logging.getLogger()
+    if len(root_logger.handlers) > 0:
+        root_logger.setLevel(logging.INFO)
+    else:
+        logging.basicConfig(level=logging.INFO)
+    return logging.getLogger(function_name)
 
 
 logger: logging.Logger = configure_logger(__name__)
@@ -187,7 +169,8 @@ def check_file_exists(file_key: str) -> bool:
     """
     try:
         decoded_key = unquote(file_key)
-        logger.info(f"Checking if file exists: s3://{BUCKET_NAME}/{decoded_key}")
+        logger.info(
+            f"Checking if file exists: s3://{BUCKET_NAME}/{decoded_key}")
 
         s3_client.head_object(Bucket=BUCKET_NAME, Key=decoded_key)
         logger.info(f"File found: {decoded_key}")
@@ -255,7 +238,8 @@ def extract_page_number(key: str) -> str:
         logger.info(f"Extracted page number '{page_no}' from {filename}")
         return page_no
     else:
-        logger.warning(f"Could not extract page number from {filename}, using '000'")
+        logger.warning(
+            f"Could not extract page number from {filename}, using '000'")
         return "000"
 
 
@@ -274,8 +258,7 @@ def handler(event: dict[str, any], _) -> dict:
     Returns:
         Dict with statusCode and body containing OCR results metadata
     """
-    logger.info(f"Received event: {dumps(event)}")
-    logger.info(f"Processing Lambda: {LAMBDA_NAME}, Bucket: {BUCKET_NAME}")
+    logger.info(f"🚀 Incoming Event (type={type(event)}): {event}")
 
     # ─────────────────────────────────────────────────────────────────────
     # Validate Input Parameters
@@ -288,8 +271,7 @@ def handler(event: dict[str, any], _) -> dict:
         return {
             "statusCode": 400,
             "body": {
-                "error": "Missing or invalid 'key' parameter",
-                "results": None
+                "message": "Missing or invalid 'key' parameter"
             }
         }
 
@@ -300,8 +282,7 @@ def handler(event: dict[str, any], _) -> dict:
         return {
             "statusCode": 400,
             "body": {
-                "error": f"Input file must be .jpg, .jpeg, or .png: {key}",
-                "results": None
+                "message": f"Input file must be .jpg, .jpeg, or .png: {key}"
             }
         }
 
@@ -360,8 +341,7 @@ def handler(event: dict[str, any], _) -> dict:
         return {
             "statusCode": 404,
             "body": {
-                "error": f"Image not found in S3: {key}",
-                "results": None
+                "message": f"Image not found in S3: {key}"
             }
         }
 
@@ -436,7 +416,6 @@ def handler(event: dict[str, any], _) -> dict:
         return {
             "statusCode": 500,
             "body": {
-                "error": str(e),
-                "results": None
+                "message": str(e)
             }
         }

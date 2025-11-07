@@ -21,10 +21,10 @@ Output:
         "statusCode": 200,
         "body": {
             "results": {
-                "images": ["pdf-to-images/images/abc123/def456/filename_001.jpg", ...],
-                "output_path": "pdf-to-images/images/abc123/def456/",
+                "images": ["pdf-to-images/abc123/def456/filename_001.jpg", ...],
+                "output_path": "pdf-to-images/abc123/def456/",
                 "image_count": 3,
-                "input_file": "pdf-to-images/raw/abc123/def456/filename.pdf"
+                "input_file": "pdf-to-images/abc123/def456/filename.pdf"
             }
         }
     }
@@ -38,6 +38,7 @@ from PIL import Image
 from io import BytesIO
 from json import dumps
 from pathlib import Path
+from logging import Logger
 from urllib.parse import unquote
 from pdf2image import convert_from_bytes
 from typing import Optional
@@ -68,32 +69,13 @@ NULL_RESPONSE: dict = {
 # Logging Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 
-def configure_logger(name: str) -> logging.Logger:
-    """
-    Configure logger with structured output for CloudWatch.
-
-    Args:
-        name: Logger name (usually __name__)
-
-    Returns:
-        Configured logger instance
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-
-    # Only add handler if none exist (avoid duplicate handlers)
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    return logger
+def configure_logger(function_name: str) -> Logger:
+    root_logger = logging.getLogger()
+    if len(root_logger.handlers) > 0:
+        root_logger.setLevel(logging.INFO)
+    else:
+        logging.basicConfig(level=logging.INFO)
+    return logging.getLogger(function_name)
 
 
 logger: logging.Logger = configure_logger(__name__)
@@ -316,16 +298,15 @@ def handler(event: dict[str, any], _) -> dict:
     Returns:
         Dict with statusCode and body containing 'results' (uploaded image keys, output path)
     """
-    logger.info(f"Received event: {dumps(event)}")
-    logger.info(f"Processing Lambda: {LAMBDA_NAME}, Bucket: {BUCKET}")
+    logger.info(f"🚀 Incoming Event (type={type(event)}): {event}")
 
     # ─────────────────────────────────────────────────────────────────────
     # Validate Input Parameters
     # ─────────────────────────────────────────────────────────────────────
 
-    key: str = event.get('key')
-    if not key or not isinstance(key, str) or not len(key):
-        return missing_param("key")
+    input_path: str = event.get('input_path')
+    if not input_path or not isinstance(input_path, str) or not len(input_path):
+        return missing_param("input_path")
 
     md5_hash: str = event.get('md5_hash')
     if not md5_hash or not isinstance(md5_hash, str) or not len(md5_hash):
@@ -347,13 +328,10 @@ def handler(event: dict[str, any], _) -> dict:
     # Construct S3 Paths
     # ─────────────────────────────────────────────────────────────────────
 
-    # Input: receipt-pdf-to-images/raw/{md5_1}/{md5_2}/filename.pdf
-    input_path = f"{LAMBDA_NAME}/raw/{md5_1}/{md5_2}/{Path(key).name}"
+    # Output: receipt-pdf-to-images/{md5_1}/{md5_2}/
+    output_path = f"{LAMBDA_NAME}/{md5_1}/{md5_2}/"
 
-    # Output: receipt-pdf-to-images/images/{md5_1}/{md5_2}/
-    output_path = f"{LAMBDA_NAME}/images/{md5_1}/{md5_2}/"
-
-    file_name_no_ext = Path(key).stem
+    file_name_no_ext = Path(input_path).stem
 
     logger.info(f"Input:  s3://{BUCKET}/{input_path}")
     logger.info(f"Output: s3://{BUCKET}/{output_path}")

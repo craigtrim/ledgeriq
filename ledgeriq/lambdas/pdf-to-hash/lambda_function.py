@@ -22,12 +22,12 @@ Output:
         "body": {
             "md5_hash": "ab-cdef123456789...",
             "file_name": "receipt.pdf",
-            "output_path": "pdf-to-hash/hashed/ab/cdef123456789.../ab-cdef123456789....pdf"
+            "output_path": "pdf-to-hash/ab/cdef123456789.../ab-cdef123456789....pdf"
         }
     }
 
 Storage Layout:
-    - Primary: pdf-to-hash/hashed/{hash[:2]}/{hash[2:]}/{hash}.pdf
+    - Primary: pdf-to-hash/{hash[:2]}/{hash[2:]}/{hash}.pdf
     - Lookup:  pdf-to-hash/hash-map/{hash[:2]}/{hash[2:]}/{original_filename}.pdf
 """
 
@@ -38,6 +38,7 @@ import logging
 from io import BytesIO
 from json import dumps
 from hashlib import md5
+from logging import Logger
 from urllib.parse import unquote
 
 
@@ -63,32 +64,13 @@ NULL_RESPONSE = {
 # Logging Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 
-def configure_logger(name: str) -> logging.Logger:
-    """
-    Configure logger with structured output for CloudWatch.
-
-    Args:
-        name: Logger name (usually __name__)
-
-    Returns:
-        Configured logger instance
-    """
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-
-    # Only add handler if none exist (avoid duplicate handlers)
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setLevel(logging.INFO)
-
-        formatter = logging.Formatter(
-            '%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-            datefmt='%Y-%m-%d %H:%M:%S'
-        )
-        handler.setFormatter(formatter)
-        logger.addHandler(handler)
-
-    return logger
+def configure_logger(function_name: str) -> Logger:
+    root_logger = logging.getLogger()
+    if len(root_logger.handlers) > 0:
+        root_logger.setLevel(logging.INFO)
+    else:
+        logging.basicConfig(level=logging.INFO)
+    return logging.getLogger(function_name)
 
 
 logger: logging.Logger = configure_logger(__name__)
@@ -167,7 +149,7 @@ def generate_output_keys(*, key: str, md5_hash: str) -> tuple[str, str]:
             md5_hash: "a1b2c3d4e5f6789..."
 
         Output:
-            hashed_key: "pdf-to-hash/hashed/a1/b2c3d4e5f6789.../a1-b2c3d4e5f6789....pdf"
+            hashed_key: "pdf-to-hash/a1/b2c3d4e5f6789.../a1-b2c3d4e5f6789....pdf"
             lookup_key: "pdf-to-hash/hash-map/a1/b2c3d4e5f6789.../receipt.pdf"
 
     Args:
@@ -189,10 +171,10 @@ def generate_output_keys(*, key: str, md5_hash: str) -> tuple[str, str]:
     formatted_hash = f"{md5_01}-{md5_02}"
 
     # Primary storage: hash-based filename
-    hashed_key = f"pdf-to-hash/hashed/{md5_01}/{md5_02}/{formatted_hash}{ext}"
+    hashed_key = f"pdf-to-hash/file-hash/{md5_01}/{md5_02}/{formatted_hash}{ext}"
 
     # Lookup storage: original filename (for reverse mapping)
-    lookup_key = f"pdf-to-hash/hash-map/{md5_01}/{md5_02}/{file_name}"
+    lookup_key = f"pdf-to-hash/file-name/{md5_01}/{md5_02}/{file_name}"
 
     logger.info(f"Generated hashed path: s3://{BUCKET}/{hashed_key}")
     logger.info(f"Generated lookup path: s3://{BUCKET}/{lookup_key}")
@@ -215,8 +197,7 @@ def handler(event: dict, _) -> dict:
     Returns:
         Dict with statusCode and body containing md5_hash, file_name, output_path
     """
-    logger.info(f"Received event: {dumps(event)}")
-    logger.info(f"Processing Lambda: pdf-to-hash, Bucket: {BUCKET}")
+    logger.info(f"🚀 Incoming Event (type={type(event)}): {event}")
 
     # ─────────────────────────────────────────────────────────────────────
     # Validate Input Parameters
@@ -307,7 +288,7 @@ def handler(event: dict, _) -> dict:
     except Exception as e:
         logger.error(
             f"Processing failed for {key}: {str(e)}", exc_info=True)
-        
+
         return {
             "statusCode": 500,
             "body": {
