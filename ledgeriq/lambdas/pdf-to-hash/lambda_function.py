@@ -8,7 +8,8 @@ Features:
 - MD5-based deduplication (DVC-style path organization)
 - S3-native processing (read from S3, write to S3)
 - Content-addressable storage prevents duplicate processing
-- Generic microservice suitable for any PDF workflow
+- Hash-based filenames avoid special character issues
+- Maintains filename→hash lookup mapping in separate S3 prefix
 
 Event Input:
     {
@@ -21,9 +22,13 @@ Output:
         "body": {
             "md5_hash": "ab-cdef123456789...",
             "file_name": "receipt.pdf",
-            "output_path": "pdf-to-hash/hashed/ab/cdef123456789.../receipt.pdf"
+            "output_path": "pdf-to-hash/hashed/ab/cdef123456789.../ab-cdef123456789....pdf"
         }
     }
+
+Storage Layout:
+    - Primary: pdf-to-hash/hashed/{hash[:2]}/{hash[2:]}/{hash}.pdf
+    - Lookup:  pdf-to-hash/hash-map/{hash[:2]}/{hash[2:]}/{original_filename}.pdf
 """
 
 import os
@@ -144,42 +149,55 @@ def read_bytestream(key: str) -> BytesIO:
         raise
 
 
-def generate_output_key(*, key: str, md5_hash: str) -> str:
+def generate_output_keys(*, key: str, md5_hash: str) -> tuple[str, str]:
     """
-    Generate content-addressable S3 path based on MD5 hash.
+    Generate content-addressable S3 paths based on MD5 hash.
+
+    Creates two paths:
+    1. Hash-based filename (main storage, returned to caller)
+    2. Original filename (lookup/reference, for reverse hash→filename mapping)
 
     Uses DVC-style path organization for deduplication:
     - First 2 characters of hash become first directory
     - Remaining characters become second directory
-    - Original filename preserved at end
 
     Example:
         Input:
             key: "uploads/receipt.pdf"
-            md5_hash: "a1b2c3d4e5f6..."
+            md5_hash: "a1b2c3d4e5f6789..."
 
         Output:
-            "pdf-to-hash/hashed/a1/b2c3d4e5f6.../receipt.pdf"
+            hashed_key: "pdf-to-hash/hashed/a1/b2c3d4e5f6789.../a1-b2c3d4e5f6789....pdf"
+            lookup_key: "pdf-to-hash/hash-map/a1/b2c3d4e5f6789.../receipt.pdf"
 
     Args:
         key: Original S3 key or filename
         md5_hash: MD5 hash of file contents
 
     Returns:
-        Content-addressable S3 path
+        Tuple of (hashed_key, lookup_key)
     """
     # Split MD5 hash for directory structure
     md5_01: str = md5_hash[:2]
     md5_02: str = md5_hash[2:]
 
-    # Extract filename from key (handle both paths and bare filenames)
+    # Extract original filename and extension
     file_name = os.path.basename(key)
+    _, ext = os.path.splitext(file_name)
 
-    # Construct content-addressable path
-    output_key = f"pdf-to-hash/hashed/{md5_01}/{md5_02}/{file_name}"
+    # Format hash for filename (with hyphen separator)
+    formatted_hash = f"{md5_01}-{md5_02}"
 
-    logger.info(f"Generated output path: s3://{BUCKET}/{output_key}")
-    return output_key
+    # Primary storage: hash-based filename
+    hashed_key = f"pdf-to-hash/hashed/{md5_01}/{md5_02}/{formatted_hash}{ext}"
+
+    # Lookup storage: original filename (for reverse mapping)
+    lookup_key = f"pdf-to-hash/hash-map/{md5_01}/{md5_02}/{file_name}"
+
+    logger.info(f"Generated hashed path: s3://{BUCKET}/{hashed_key}")
+    logger.info(f"Generated lookup path: s3://{BUCKET}/{lookup_key}")
+
+    return hashed_key, lookup_key
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -242,31 +260,40 @@ def handler(event: dict, _) -> dict:
         # Calculate MD5 hash
         md5_hash: str = calculate_md5(bytestream)
 
-        # Generate content-addressable path
-        output_key: str = generate_output_key(
+        # Generate content-addressable paths (hash-based + lookup)
+        hashed_key, lookup_key = generate_output_keys(
             key=key,
             md5_hash=md5_hash
         )
 
-        # Write to content-addressable location
+        # Write to primary storage (hash-based filename)
         bytestream.seek(0)
         s3_client.put_object(
             Bucket=BUCKET,
-            Key=output_key,
+            Key=hashed_key,
             Body=bytestream,
             ContentType='application/pdf'
         )
+        logger.info(f"Wrote to primary storage: s3://{BUCKET}/{hashed_key}")
 
-        logger.info(f"Successfully wrote PDF to: s3://{BUCKET}/{output_key}")
+        # Write to lookup storage (original filename for reverse mapping)
+        bytestream.seek(0)
+        s3_client.put_object(
+            Bucket=BUCKET,
+            Key=lookup_key,
+            Body=bytestream,
+            ContentType='application/pdf'
+        )
+        logger.info(f"Wrote to lookup storage: s3://{BUCKET}/{lookup_key}")
 
         # Extract filename
         file_name = os.path.basename(key)
 
-        # Build response
+        # Build response (return hash-based path, not original filename path)
         body = {
             "md5_hash": f"{md5_hash[:2]}-{md5_hash[2:]}",
             "file_name": file_name,
-            "output_path": output_key
+            "output_path": hashed_key
         }
 
         logger.info(f"Successfully processed: {file_name}")
