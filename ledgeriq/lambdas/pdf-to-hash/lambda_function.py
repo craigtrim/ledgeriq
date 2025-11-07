@@ -17,9 +17,12 @@ Event Input:
 
 Output:
     {
-        "md5_hash": "ab-cdef123456789...",
-        "file_name": "receipt.pdf",
-        "output_path": "pdf-to-hash/hashed/ab/cdef123456789.../receipt.pdf"
+        "statusCode": 200,
+        "body": {
+            "md5_hash": "ab-cdef123456789...",
+            "file_name": "receipt.pdf",
+            "output_path": "pdf-to-hash/hashed/ab/cdef123456789.../receipt.pdf"
+        }
     }
 """
 
@@ -40,10 +43,14 @@ from urllib.parse import unquote
 BUCKET: str = os.getenv("BUCKET_NAME", "ledgeriq")
 s3_client = boto3.client('s3')
 
+# Response constants
 NULL_RESPONSE = {
-    "md5_hash": None,
-    "file_name": None,
-    "output_path": None
+    "statusCode": 500,
+    "body": {
+        "md5_hash": None,
+        "file_name": None,
+        "output_path": None
+    }
 }
 
 
@@ -186,7 +193,7 @@ def handler(event: dict, _) -> dict:
         context: Lambda context (unused)
 
     Returns:
-        Dict with md5_hash, file_name, and output_path
+        Dict with statusCode and body containing md5_hash, file_name, output_path
     """
     logger.info(f"Received event: {dumps(event)}")
     logger.info(f"Processing Lambda: pdf-to-hash, Bucket: {BUCKET}")
@@ -204,11 +211,27 @@ def handler(event: dict, _) -> dict:
 
     if not key or not isinstance(key, str) or not len(key):
         logger.error("Missing or invalid 'key' parameter")
-        return NULL_RESPONSE
+        return {
+            "statusCode": 400,
+            "body": {
+                "error": "Missing or invalid 'key' parameter",
+                "md5_hash": None,
+                "file_name": None,
+                "output_path": None
+            }
+        }
 
     if not key.lower().endswith('.pdf'):
         logger.error(f"Not a PDF file: {key}")
-        return NULL_RESPONSE
+        return {
+            "statusCode": 400,
+            "body": {
+                "error": f"Not a PDF file: {key}",
+                "md5_hash": None,
+                "file_name": None,
+                "output_path": None
+            }
+        }
 
     logger.info(f"Processing PDF: {key}")
 
@@ -243,18 +266,29 @@ def handler(event: dict, _) -> dict:
         file_name = os.path.basename(key)
 
         # Build response
-        result = {
+        body = {
             "md5_hash": f"{md5_hash[:2]}-{md5_hash[2:]}",
             "file_name": file_name,
             "output_path": output_key
         }
 
         logger.info(f"Successfully processed: {file_name}")
-        logger.info(f"Result: {dumps(result)}")
+        logger.info(f"Result: {dumps(body)}")
 
-        return result
+        return {
+            "statusCode": 200,
+            "body": body
+        }
 
     except Exception as e:
         logger.error(
             f"Processing failed for {key}: {str(e)}", exc_info=True)
-        return NULL_RESPONSE
+        return {
+            "statusCode": 500,
+            "body": {
+                "error": str(e),
+                "md5_hash": None,
+                "file_name": None,
+                "output_path": None
+            }
+        }

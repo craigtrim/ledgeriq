@@ -41,30 +41,51 @@ Converts PDF files to individual JPEG images optimized for vision LLM processing
 
 ### Output
 
+**Success Response (200):**
 ```json
 {
-    "results": {
-        "images": [
-            "pdf-to-images/images/abc123/def456/receipt_001.jpg",
-            "pdf-to-images/images/abc123/def456/receipt_002.jpg"
-        ],
-        "output_path": "pdf-to-images/images/abc123/def456/",
-        "image_count": 2,
-        "input_file": "pdf-to-images/raw/abc123/def456/receipt.pdf"
+    "statusCode": 200,
+    "body": {
+        "results": {
+            "images": [
+                "pdf-to-images/images/abc123/def456/receipt_001.jpg",
+                "pdf-to-images/images/abc123/def456/receipt_002.jpg"
+            ],
+            "output_path": "pdf-to-images/images/abc123/def456/",
+            "image_count": 2,
+            "input_file": "pdf-to-images/raw/abc123/def456/receipt.pdf"
+        }
     }
 }
 ```
 
 **Returns:**
-- `images` (list[string]): S3 keys of uploaded images
-- `output_path` (string): S3 prefix where images are stored
-- `image_count` (int): Number of images extracted
-- `input_file` (string): S3 key of input PDF
+- `statusCode` (int): HTTP status code (200 for success)
+- `body.results.images` (list[string]): S3 keys of uploaded images
+- `body.results.output_path` (string): S3 prefix where images are stored
+- `body.results.image_count` (int): Number of images extracted
+- `body.results.input_file` (string): S3 key of input PDF
 
-**Error Response:**
+**Error Responses:**
+
+Bad Request (400):
 ```json
 {
-    "results": null
+    "statusCode": 400,
+    "body": {
+        "error": "Missing required parameter: key",
+        "parameter": "key"
+    }
+}
+```
+
+Internal Server Error (500):
+```json
+{
+    "statusCode": 500,
+    "body": {
+        "results": null
+    }
 }
 ```
 

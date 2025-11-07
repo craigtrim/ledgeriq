@@ -43,25 +43,49 @@ Suitable for any PDF workflow requiring deduplication: receipts, invoices, docum
 
 ### Output
 
+**Success Response (200):**
 ```json
 {
-    "md5_hash": "a1-b2c3d4e5f6789...",
-    "file_name": "receipt.pdf",
-    "output_path": "pdf-to-hash/hashed/a1/b2c3d4e5f6789.../receipt.pdf"
+    "statusCode": 200,
+    "body": {
+        "md5_hash": "a1-b2c3d4e5f6789...",
+        "file_name": "receipt.pdf",
+        "output_path": "pdf-to-hash/hashed/a1/b2c3d4e5f6789.../receipt.pdf"
+    }
 }
 ```
 
 **Returns:**
-- `md5_hash` (string): MD5 hash in format `{first2}-{remaining}` for downstream use
-- `file_name` (string): Original filename (no path)
-- `output_path` (string): Content-addressable S3 path where file is stored
+- `statusCode` (int): HTTP status code (200 for success)
+- `body.md5_hash` (string): MD5 hash in format `{first2}-{remaining}` for downstream use
+- `body.file_name` (string): Original filename (no path)
+- `body.output_path` (string): Content-addressable S3 path where file is stored
 
-**Error Response:**
+**Error Responses:**
+
+Bad Request (400):
 ```json
 {
-    "md5_hash": null,
-    "file_name": null,
-    "output_path": null
+    "statusCode": 400,
+    "body": {
+        "error": "Missing or invalid 'key' parameter",
+        "md5_hash": null,
+        "file_name": null,
+        "output_path": null
+    }
+}
+```
+
+Internal Server Error (500):
+```json
+{
+    "statusCode": 500,
+    "body": {
+        "error": "Error message here",
+        "md5_hash": null,
+        "file_name": null,
+        "output_path": null
+    }
 }
 ```
 
@@ -148,9 +172,12 @@ response = lambda_client.invoke(
 result = json.loads(response['Payload'].read())
 print(result)
 # {
-#     "md5_hash": "a1-b2c3d4e5f6...",
-#     "file_name": "receipt-2024-01.pdf",
-#     "output_path": "pdf-to-hash/hashed/a1/b2c3d4e5f6.../receipt-2024-01.pdf"
+#     "statusCode": 200,
+#     "body": {
+#         "md5_hash": "a1-b2c3d4e5f6...",
+#         "file_name": "receipt-2024-01.pdf",
+#         "output_path": "pdf-to-hash/hashed/a1/b2c3d4e5f6.../receipt-2024-01.pdf"
+#     }
 # }
 ```
 
@@ -181,9 +208,12 @@ print(result)
 5. **Response Contains Hash:**
    ```json
    {
-     "md5_hash": "a1-b2c3d4e5f6...",
-     "file_name": "receipt-2024-01.pdf",
-     "output_path": "pdf-to-hash/hashed/a1/b2c3d4e5f6.../receipt-2024-01.pdf"
+     "statusCode": 200,
+     "body": {
+       "md5_hash": "a1-b2c3d4e5f6...",
+       "file_name": "receipt-2024-01.pdf",
+       "output_path": "pdf-to-hash/hashed/a1/b2c3d4e5f6.../receipt-2024-01.pdf"
+     }
    }
    ```
 

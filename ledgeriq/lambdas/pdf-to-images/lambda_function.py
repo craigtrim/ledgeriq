@@ -18,11 +18,14 @@ Event Input:
 
 Output:
     {
-        "results": {
-            "images": ["pdf-to-images/images/abc123/def456/filename_001.jpg", ...],
-            "output_path": "pdf-to-images/images/abc123/def456/",
-            "image_count": 3,
-            "input_file": "pdf-to-images/raw/abc123/def456/filename.pdf"
+        "statusCode": 200,
+        "body": {
+            "results": {
+                "images": ["pdf-to-images/images/abc123/def456/filename_001.jpg", ...],
+                "output_path": "pdf-to-images/images/abc123/def456/",
+                "image_count": 3,
+                "input_file": "pdf-to-images/raw/abc123/def456/filename.pdf"
+            }
         }
     }
 """
@@ -53,7 +56,12 @@ DPI_REDUCTION_STEP: int = 35
 INITIAL_DPI: int = 150
 
 # Response constants
-NULL_RESPONSE: dict = {"results": None}
+NULL_RESPONSE: dict = {
+    "statusCode": 500,
+    "body": {
+        "results": None
+    }
+}
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -306,7 +314,7 @@ def handler(event: dict[str, any], _) -> dict:
         context: Lambda context (unused)
 
     Returns:
-        Dict with 'results' containing uploaded image keys and output path
+        Dict with statusCode and body containing 'results' (uploaded image keys, output path)
     """
     logger.info(f"Received event: {dumps(event)}")
     logger.info(f"Processing Lambda: {LAMBDA_NAME}, Bucket: {BUCKET}")
@@ -378,7 +386,7 @@ def handler(event: dict[str, any], _) -> dict:
             return NULL_RESPONSE
 
         # Build successful response
-        result = {
+        body = {
             "results": {
                 "images": uploaded_keys,
                 "output_path": output_path,
@@ -389,9 +397,12 @@ def handler(event: dict[str, any], _) -> dict:
 
         logger.info(
             f"Successfully processed {len(uploaded_keys)} images from {file_name_no_ext}")
-        logger.info(f"Result: {dumps(result)}")
+        logger.info(f"Result: {dumps(body)}")
 
-        return result
+        return {
+            "statusCode": 200,
+            "body": body
+        }
 
     except Exception as e:
         logger.error(
