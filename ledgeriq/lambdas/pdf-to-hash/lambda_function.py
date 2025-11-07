@@ -132,11 +132,13 @@ def read_bytestream(key: str) -> BytesIO:
     logger.info(f"Reading from S3: s3://{BUCKET}/{decoded_key}")
 
     try:
+
         obj = s3_client.get_object(Bucket=BUCKET, Key=decoded_key)
         bytestream = BytesIO(obj['Body'].read())
         size_kb = len(bytestream.getvalue()) / 1024
         logger.info(f"Successfully read {size_kb:.1f} KB from S3")
         return bytestream
+
     except Exception as e:
         logger.error(f"Failed to read from S3: {decoded_key} - {e}")
         raise
@@ -214,10 +216,7 @@ def handler(event: dict, _) -> dict:
         return {
             "statusCode": 400,
             "body": {
-                "error": "Missing or invalid 'key' parameter",
-                "md5_hash": None,
-                "file_name": None,
-                "output_path": None
+                "message": "Missing or invalid 'key' parameter",
             }
         }
 
@@ -226,10 +225,7 @@ def handler(event: dict, _) -> dict:
         return {
             "statusCode": 400,
             "body": {
-                "error": f"Not a PDF file: {key}",
-                "md5_hash": None,
-                "file_name": None,
-                "output_path": None
+                "message": f"Not a PDF file: {key}",
             }
         }
 
@@ -260,6 +256,7 @@ def handler(event: dict, _) -> dict:
             Body=bytestream,
             ContentType='application/pdf'
         )
+
         logger.info(f"Successfully wrote PDF to: s3://{BUCKET}/{output_key}")
 
         # Extract filename
@@ -283,12 +280,10 @@ def handler(event: dict, _) -> dict:
     except Exception as e:
         logger.error(
             f"Processing failed for {key}: {str(e)}", exc_info=True)
+        
         return {
             "statusCode": 500,
             "body": {
-                "error": str(e),
-                "md5_hash": None,
-                "file_name": None,
-                "output_path": None
+                "message": str(e),
             }
         }
