@@ -206,11 +206,11 @@ def generate_output_key(input_key: str) -> str:
     """
     Generate output S3 key for OCR results.
 
-    Converts image path to JSON path in ocr directory.
+    Converts image path to JSON path in img-to-ocr directory.
 
     Example:
-        Input:  "img-to-ocr/images/abc123/def456/receipt_001.jpg"
-        Output: "img-to-ocr/ocr/abc123/def456/receipt_001.json"
+        Input:  "pdf-to-images/abc123/def456/receipt_001.jpg"
+        Output: "img-to-ocr/abc123/def456/receipt_001.json"
 
     Args:
         input_key: Input image S3 key
@@ -218,8 +218,8 @@ def generate_output_key(input_key: str) -> str:
     Returns:
         Output OCR JSON S3 key
     """
-    # Replace 'images' directory with 'ocr'
-    output_key = input_key.replace('/images/', '/ocr/')
+    # Replace pdf-to-images prefix with img-to-ocr
+    output_key = input_key.replace('pdf-to-images', 'img-to-ocr')
 
     # Replace image extension with .json
     if output_key.endswith('.jpg'):
