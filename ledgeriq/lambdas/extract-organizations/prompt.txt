@@ -1,0 +1,20 @@
+Extract all organization names from the document.
+
+Organizations include:
+- Companies (e.g., "Blue Cross Blue Shield", "Walmart")
+- Healthcare providers (e.g., "Seattle Medical Center", "ABC Hospital")
+- Insurance companies (e.g., "Aetna", "UnitedHealthcare")
+- Service providers (e.g., "Comcast", "AT&T")
+- Government agencies (e.g., "Social Security Administration")
+- Any other business or institutional entity
+
+Do NOT include:
+- Person names
+- Locations/addresses by themselves
+- Generic terms like "Hospital" without a specific name
+
+Return each organization name on a separate line.
+Return "none" if no organization names are found.
+
+Document text:
+{document_text}
