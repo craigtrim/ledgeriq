@@ -1,0 +1,58 @@
+## Task
+Classify the given document text into **exactly one** of the following categories: `receipt`, `invoice`, `eob`, or `unknown`.
+
+## Input
+- document_text: {document_text}
+
+## Categories
+
+### receipt
+Store or restaurant receipts showing consumer purchases.
+- Merchant/store name
+- Itemized products with prices
+- Subtotal, tax, total
+- Payment method
+- Transaction date/time
+- Store location
+
+### invoice
+Business-to-business invoices for goods or services.
+- Invoice number (e.g., "Invoice #12345", "INV-2024-001")
+- Bill To / Ship To addresses
+- Line items with quantities and unit prices
+- Payment terms (e.g., "Net 30", "Due upon receipt")
+- Due date
+- Vendor information
+
+### eob
+Explanation of Benefits from health insurance.
+- Insurance company name (e.g., "Blue Cross", "Aetna", "UnitedHealthcare")
+- Patient name and member/policy ID
+- Healthcare provider name
+- Service dates
+- Procedure/CPT codes
+- Amount billed, allowed, paid
+- Patient responsibility (deductible, copay, coinsurance)
+
+### unknown
+Document does not clearly match the above categories.
+
+## Rules
+1. Match explicit type indicators first (e.g., "RECEIPT" header, "INVOICE #", "EXPLANATION OF BENEFITS").
+2. Receipts have consumer purchases; invoices have business transactions; EOBs have medical/insurance details.
+3. Do **not** classify receipts as: quotes, estimates, or pro forma invoices.
+4. Do **not** classify invoices as: purchase orders, delivery notes, or packing slips.
+5. Do **not** classify EOBs as: medical bills from providers (only insurance company EOBs).
+6. If ambiguous or unclear, return `unknown`.
+
+## Output
+Return **exactly one word** with no additional text, punctuation, or formatting:
+- `receipt`
+- `invoice`
+- `eob`
+- `unknown`
+
+## Document Text
+{document_text}
+
+Now provide your response immediately with only the document type:
