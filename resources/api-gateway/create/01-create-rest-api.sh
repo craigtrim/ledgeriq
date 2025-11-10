@@ -3,7 +3,7 @@
 
 # Default values for region and profile
 AWS_REGION="us-west-2"
-AWS_PROFILE="dwc_lambda"
+AWS_PROFILE="transcriptiq_apigatewayserviceuser"
 
 # Parse arguments for lambda-arn, region, and profile
 while [[ "$#" -gt 0 ]]; do
