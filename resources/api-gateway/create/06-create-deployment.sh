@@ -3,7 +3,7 @@
 
 # Default values
 AWS_REGION="us-west-2"
-AWS_PROFILE="ledgeriq"
+AWS_PROFILE="dwc_lambda"
 STAGE_NAME="prod"  # Default stage name
 
 # Parse arguments for rest-api-id and stage-name

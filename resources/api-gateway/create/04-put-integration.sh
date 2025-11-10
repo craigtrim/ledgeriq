@@ -3,7 +3,7 @@
 
 # Default values
 AWS_REGION="us-west-2"
-AWS_PROFILE="ledgeriq"
+AWS_PROFILE="dwc_lambda"
 
 # Parse arguments for rest-api-id, resource-id, and lambda-function-arn
 while [[ "$#" -gt 0 ]]; do
