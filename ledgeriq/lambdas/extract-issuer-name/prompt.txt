@@ -1,0 +1,19 @@
+You must identify which organization issued this document.
+
+The document issuer is the organization that created or sent the document. This could be:
+- An insurance company (for EOBs or insurance statements)
+- A healthcare provider (for medical bills)
+- A retailer or merchant (for receipts)
+- A service provider (for utility bills, invoices)
+- A financial institution (for bank statements)
+
+Here are the organizations found in the document:
+{allowed_organizations}
+
+Based on the document text below, identify which ONE organization issued this document.
+
+Return ONLY the organization name that issued the document.
+If you cannot determine the issuer, return "none".
+
+Document text:
+{document_text}
