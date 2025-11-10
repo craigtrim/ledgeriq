@@ -3,7 +3,7 @@
 
 # Default values
 AWS_REGION="us-west-2"
-AWS_PROFILE="transcriptiq_apigatewayserviceuser"
+AWS_PROFILE="dwc_apigateway"
 
 # Parse arguments for optional AWS region and profile
 while [[ "$#" -gt 0 ]]; do

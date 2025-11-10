@@ -3,7 +3,7 @@
 
 # Default values
 AWS_REGION="us-west-2"
-AWS_PROFILE="transcriptiq_apigatewayserviceuser"
+AWS_PROFILE="dwc_apigateway"
 AWS_ACCOUNT_ID="210182908261"
 
 # Parse arguments for lambda-function-arn, rest-api-id, http-method, and path-part

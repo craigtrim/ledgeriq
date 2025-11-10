@@ -3,7 +3,7 @@
 
 # Default values
 AWS_REGION="us-west-2"
-AWS_PROFILE="transcriptiq_apigatewayserviceuser"
+AWS_PROFILE="dwc_apigateway"
 
 # Parse arguments for rest-api-id, parent-id, and path-part
 while [[ "$#" -gt 0 ]]; do

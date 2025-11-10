@@ -3,7 +3,7 @@
 
 # Default values for region, profile, stage name, and endpoint type
 DEFAULT_AWS_REGION="us-west-2"
-DEFAULT_AWS_PROFILE="transcriptiq_apigatewayserviceuser"
+DEFAULT_AWS_PROFILE="dwc_apigateway"
 DEFAULT_STAGE_NAME="prod"
 DEFAULT_ENDPOINT_TYPE="REGIONAL"
 
