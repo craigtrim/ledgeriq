@@ -24,20 +24,19 @@ AWS_PROFILE=${AWS_PROFILE:-$DEFAULT_AWS_PROFILE}
 echo "Checking AWS credentials for profile: ${AWS_PROFILE}..."
 if ! aws sts get-caller-identity --profile ${AWS_PROFILE} &>/dev/null; then
     echo "⚠️  AWS credentials are not valid or have expired."
-    echo "Attempting to refresh SSO login..."
+    echo ""
+    echo "Please run the following command in another terminal to refresh your credentials:"
+    echo "  aws sso login --profile ${AWS_PROFILE}"
+    echo ""
+    read -p "Press Enter after you have logged in to continue..."
 
-    if ! aws sso login --profile ${AWS_PROFILE}; then
-        echo "❌ SSO login failed. Please check your AWS configuration."
-        exit 1
-    fi
-
-    # Verify credentials again after SSO login
+    # Verify credentials after user confirms login
     if ! aws sts get-caller-identity --profile ${AWS_PROFILE} &>/dev/null; then
-        echo "❌ Credentials still invalid after SSO login. Exiting."
+        echo "❌ Credentials still invalid. Exiting."
         exit 1
     fi
 
-    echo "✅ AWS credentials refreshed successfully."
+    echo "✅ AWS credentials verified successfully."
 else
     echo "✅ AWS credentials are valid."
 fi
