@@ -20,6 +20,28 @@ AWS_REGION=${AWS_REGION:-$DEFAULT_AWS_REGION}
 read -p "Enter AWS profile (default: ${DEFAULT_AWS_PROFILE}): " AWS_PROFILE
 AWS_PROFILE=${AWS_PROFILE:-$DEFAULT_AWS_PROFILE}
 
+# Check if AWS credentials are valid
+echo "Checking AWS credentials for profile: ${AWS_PROFILE}..."
+if ! aws sts get-caller-identity --profile ${AWS_PROFILE} &>/dev/null; then
+    echo "⚠️  AWS credentials are not valid or have expired."
+    echo "Attempting to refresh SSO login..."
+
+    if ! aws sso login --profile ${AWS_PROFILE}; then
+        echo "❌ SSO login failed. Please check your AWS configuration."
+        exit 1
+    fi
+
+    # Verify credentials again after SSO login
+    if ! aws sts get-caller-identity --profile ${AWS_PROFILE} &>/dev/null; then
+        echo "❌ Credentials still invalid after SSO login. Exiting."
+        exit 1
+    fi
+
+    echo "✅ AWS credentials refreshed successfully."
+else
+    echo "✅ AWS credentials are valid."
+fi
+
 read -p "Enter stage name (default: ${DEFAULT_STAGE_NAME}): " STAGE_NAME
 STAGE_NAME=${STAGE_NAME:-$DEFAULT_STAGE_NAME}
 
