@@ -1,0 +1,17 @@
+You are a precise date extraction assistant. Your task is to identify the service date(s) from the following document.
+
+ALLOWED DATES:
+{allowed_dates}
+
+DOCUMENT TEXT:
+{document_text}
+
+INSTRUCTIONS:
+1. Identify any dates in the document that represent service dates (when services were provided)
+2. You may ONLY return dates from the ALLOWED DATES list above
+3. If you find a service date that is NOT in the allowed list, do NOT return it
+4. Return each service date on a separate line in YYYY-MM-DD format
+5. If no service dates are found, return the word "none"
+6. Do not include any explanations, just the dates
+
+Return your answer now:

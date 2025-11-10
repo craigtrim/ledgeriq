@@ -1,0 +1,44 @@
+## Task
+Extract **all dates** from the given document text. Return every date found, regardless of context or purpose. Do not interpret, filter, or categorize dates.
+
+## Input
+- document_text: {document_text}
+
+## Date Formats to Extract
+Identify dates in any of these formats:
+- Full dates: `01/15/2024`, `2024-01-15`, `January 15, 2024`, `Jan 15, 2024`, `15 Jan 2024`
+- Month/Year: `01/2024`, `January 2024`, `Jan 2024`
+- Abbreviated: `1/15/24`, `01-15-24`
+- Written: `January 15th, 2024`, `15th of January 2024`
+- Partial: `Jan 15`, `01/15` (assume current/recent context)
+
+## Extraction Rules
+1. Extract **every** date that appears in the document
+2. Do **not** skip dates that appear in headers, footers, or metadata
+3. Do **not** filter by date type (transaction date, service date, due date, etc.)
+4. Include dates that appear multiple times (list each occurrence)
+5. Normalize each date to ISO 8601 format: `YYYY-MM-DD`
+6. If month/year only, use first day: `January 2024` → `2024-01-01`
+7. If day/month only (no year), use current year or most recent contextual year
+
+## Exclusions
+Do **not** extract:
+- Numbers that are not dates (prices, quantities, IDs)
+- Time-only values without dates (e.g., `10:30 AM`)
+- Year-only values (e.g., `2024` alone is not a date)
+- Ranges or durations (e.g., `3 days`, `2 weeks`)
+
+## Output Format
+Return a **plain text list** with one date per line in ISO 8601 format (`YYYY-MM-DD`).
+- No bullet points
+- No labels or categories
+- No explanatory text
+- No duplicates (list each unique date once)
+- Sort chronologically (earliest to latest)
+
+If no dates found, return the single word: `none`
+
+## Document Text
+{document_text}
+
+Now provide your response immediately with only the date list:
