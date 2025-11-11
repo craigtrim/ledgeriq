@@ -131,6 +131,10 @@ def create_api_tool_function(tool_def: Dict[str, Any]):
         else:
             input_value = list(kwargs.values())[0]
 
+        # Strip whitespace from input (Claude may add newlines)
+        if isinstance(input_value, str):
+            input_value = input_value.strip()
+
         # Build params dict using input_param from config
         params = {tool_def['input_param']: input_value}
 
