@@ -1,118 +1,67 @@
-// VPC Architecture - LedgerIQ Serverless Document Processing
+// VPC Infrastructure - LedgerIQ Serverless Platform
 
 VPC [icon: aws-vpc, color: blue] {
 
-  Public Subnet A [icon: aws-subnet, color: green] {
-    NAT Gateway A [icon: aws-nat-gateway]
+  Public Subnet AZ-A [icon: aws-subnet, color: green] {
     Internet Gateway [icon: aws-internet-gateway]
+    NAT Gateway A [icon: aws-nat-gateway]
   }
 
-  Public Subnet B [icon: aws-subnet, color: green] {
+  Public Subnet AZ-B [icon: aws-subnet, color: green] {
     NAT Gateway B [icon: aws-nat-gateway]
   }
 
-  Private Subnet A [icon: aws-subnet, color: orange] {
-
-    Pipeline Services [icon: table] {
-      pdf-to-hash [icon: aws-lambda]
-      pdf-to-images [icon: aws-lambda]
-      img-to-ocr [icon: aws-lambda]
-      ocr-to-text [icon: aws-lambda]
-      merge-ocr-results [icon: aws-lambda]
-    }
-
-    Common Extractors [icon: table] {
-      extract-dates [icon: aws-lambda]
-      extract-organizations [icon: aws-lambda]
-    }
-
-    Specific Extractors [icon: table] {
-      classify-document-type [icon: aws-lambda]
-      extract-issuer-name [icon: aws-lambda]
-      extract-service-date [icon: aws-lambda]
-    }
+  Private Subnet AZ-A [icon: aws-subnet, color: orange] {
+    Lambda Functions [icon: aws-lambda]
   }
 
-  Private Subnet B [icon: aws-subnet, color: orange] {
-
-    API Layer [icon: table] {
-      extract-document-text-api [icon: aws-lambda]
-      classify-document-type-api [icon: aws-lambda]
-      extract-issuer-name-api [icon: aws-lambda]
-      extract-service-date-api [icon: aws-lambda]
-    }
-
-    Agentic Layer [icon: table] {
-      slack-agent-bot [icon: aws-lambda]
-      langchain-orchestrator [icon: aws-lambda]
-    }
-
-    Utilities [icon: table] {
-      list-files-by-hash [icon: aws-lambda]
-    }
+  Private Subnet AZ-B [icon: aws-subnet, color: orange] {
+    Lambda Functions [icon: aws-lambda]
   }
 
   VPC Endpoints [icon: aws-endpoints, color: purple] {
     S3 Gateway Endpoint [icon: aws-s3]
-    Secrets Manager Endpoint [icon: aws-secrets-manager]
-    Bedrock Endpoint [icon: aws-bedrock]
-    Textract Endpoint [icon: aws-textract]
-    Lambda Endpoint [icon: aws-lambda]
-    ECR Endpoint [icon: aws-ecr]
-    CloudWatch Endpoint [icon: aws-cloudwatch]
+    Interface Endpoints [icon: aws-privatelink]
   }
 }
 
-// AWS Services (Outside VPC, accessed via endpoints)
+// AWS Managed Services
+
+Compute [icon: aws-lambda, color: orange] {
+  Lambda (17 functions) [icon: aws-lambda]
+  Step Functions [icon: aws-step-functions]
+}
 
 Storage [icon: aws-s3, color: green] {
-  ledgeriq-bucket [icon: aws-s3]
-  uploads/ [icon: database]
-  pdf-to-hash/hashed/ [icon: database]
-  pdf-to-images/images/ [icon: database]
-  img-to-ocr/ocr/ [icon: database]
+  S3 Bucket [icon: aws-s3]
 }
 
-Orchestration [icon: aws-step-functions, color: red] {
-  extract-document-text-sfn [icon: aws-step-functions]
-  classify-document-type-sfn [icon: aws-step-functions]
-  extract-issuer-name-sfn [icon: aws-step-functions]
-  extract-service-date-sfn [icon: aws-step-functions]
+AI-ML [icon: aws-bedrock, color: purple] {
+  Bedrock (Claude 3.5) [icon: aws-bedrock]
+  Textract (OCR) [icon: aws-textract]
 }
 
-Container Registry [icon: aws-ecr, color: orange] {
-  lambda-base-repo [icon: docker]
-  slack-agent-bot-repo [icon: docker]
-  langchain-orchestrator-repo [icon: docker]
-  pipeline-lambdas-repos [icon: docker]
-  extractor-lambdas-repos [icon: docker]
+API-Integration [icon: aws-api-gateway, color: blue] {
+  API Gateway [icon: aws-api-gateway]
+  Lambda Function URLs [icon: aws-lambda]
 }
 
-AI Services [icon: aws-bedrock, color: purple] {
-  Claude-3.5-Sonnet [icon: aws-bedrock]
-  Textract [icon: aws-textract]
+Container-Ops [icon: aws-ecr, color: orange] {
+  ECR (Container Registry) [icon: aws-ecr]
 }
 
 Security [icon: aws-secrets-manager, color: red] {
-  slack-bot-token [icon: aws-secrets-manager]
+  Secrets Manager [icon: aws-secrets-manager]
 }
 
-API Gateway [icon: aws-api-gateway, color: blue] {
-  /prod/extract_document_text_api_get [icon: aws-api-gateway]
-  /prod/classify_document_type_api_get [icon: aws-api-gateway]
-  /prod/extract_issuer_name_api_get [icon: aws-api-gateway]
-  /prod/extract_service_date_api_get [icon: aws-api-gateway]
-}
-
-Function URLs [icon: aws-lambda, color: yellow] {
-  slack-agent-bot-url [icon: aws-lambda]
+Monitoring [icon: aws-cloudwatch, color: grey] {
+  CloudWatch Logs [icon: aws-cloudwatch]
 }
 
 // External Services
 
 External [icon: globe, color: blue] {
-  Slack Events API [icon: slack]
-  Slack Web API [icon: slack]
+  Slack API [icon: slack]
 }
 
 // Network Flow
@@ -120,91 +69,31 @@ External [icon: globe, color: blue] {
 Internet Gateway > NAT Gateway A
 Internet Gateway > NAT Gateway B
 
-NAT Gateway A > slack-agent-bot
-NAT Gateway A > langchain-orchestrator
-NAT Gateway B > slack-agent-bot
-NAT Gateway B > langchain-orchestrator
+Slack API > Lambda Function URLs
 
-Slack Events API > slack-agent-bot-url
-slack-agent-bot > Slack Web API
-langchain-orchestrator > Slack Web API
+Lambda Function URLs > Lambda Functions
 
-slack-agent-bot-url > slack-agent-bot
+NAT Gateway A > Lambda Functions
+NAT Gateway B > Lambda Functions
 
-// Lambda to VPC Endpoints
+Lambda Functions > Slack API
 
-slack-agent-bot > S3 Gateway Endpoint
-slack-agent-bot > Secrets Manager Endpoint
-slack-agent-bot > Lambda Endpoint
+// VPC Connectivity
 
-langchain-orchestrator > Secrets Manager Endpoint
-langchain-orchestrator > Bedrock Endpoint
+Lambda Functions > S3 Gateway Endpoint
+Lambda Functions > Interface Endpoints
 
-pdf-to-hash > S3 Gateway Endpoint
-pdf-to-images > S3 Gateway Endpoint
-img-to-ocr > S3 Gateway Endpoint
-img-to-ocr > Textract Endpoint
-ocr-to-text > S3 Gateway Endpoint
-merge-ocr-results > S3 Gateway Endpoint
+S3 Gateway Endpoint > S3 Bucket
 
-extract-dates > S3 Gateway Endpoint
-extract-dates > Bedrock Endpoint
-extract-organizations > S3 Gateway Endpoint
-extract-organizations > Bedrock Endpoint
+Interface Endpoints > Bedrock (Claude 3.5)
+Interface Endpoints > Textract (OCR)
+Interface Endpoints > Secrets Manager
+Interface Endpoints > ECR (Container Registry)
+Interface Endpoints > CloudWatch Logs
+Interface Endpoints > Step Functions
 
-classify-document-type > S3 Gateway Endpoint
-classify-document-type > Bedrock Endpoint
-extract-issuer-name > S3 Gateway Endpoint
-extract-issuer-name > Bedrock Endpoint
-extract-service-date > S3 Gateway Endpoint
-extract-service-date > Bedrock Endpoint
+// Service Integration
 
-// VPC Endpoints to Services
-
-S3 Gateway Endpoint > ledgeriq-bucket
-Secrets Manager Endpoint > slack-bot-token
-Bedrock Endpoint > Claude-3.5-Sonnet
-Textract Endpoint > Textract
-ECR Endpoint > Container Registry
-
-// API Gateway Integration
-
-API Gateway > extract-document-text-api
-API Gateway > classify-document-type-api
-API Gateway > extract-issuer-name-api
-API Gateway > extract-service-date-api
-
-// API to Step Functions
-
-extract-document-text-api > extract-document-text-sfn
-classify-document-type-api > classify-document-type-sfn
-extract-issuer-name-api > extract-issuer-name-sfn
-extract-service-date-api > extract-service-date-sfn
-
-// Step Functions to Lambdas
-
-extract-document-text-sfn > pdf-to-hash
-extract-document-text-sfn > pdf-to-images
-extract-document-text-sfn > img-to-ocr
-extract-document-text-sfn > ocr-to-text
-extract-document-text-sfn > merge-ocr-results
-
-classify-document-type-sfn > list-files-by-hash
-classify-document-type-sfn > classify-document-type
-
-extract-issuer-name-sfn > list-files-by-hash
-extract-issuer-name-sfn > extract-issuer-name
-
-extract-service-date-sfn > list-files-by-hash
-extract-service-date-sfn > extract-service-date
-
-// Agent Orchestration
-
-langchain-orchestrator > API Gateway
-
-// Storage Flow
-
-slack-agent-bot > uploads/
-pdf-to-hash > pdf-to-hash/hashed/
-pdf-to-images > pdf-to-images/images/
-img-to-ocr > img-to-ocr/ocr/
+API Gateway > Lambda Functions
+Lambda Functions > Step Functions
+Step Functions > Lambda Functions
