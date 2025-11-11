@@ -1,99 +1,76 @@
 // VPC Infrastructure - LedgerIQ Serverless Platform
 
-VPC [icon: aws-vpc, color: blue] {
-
-  Public Subnet AZ-A [icon: aws-subnet, color: green] {
-    Internet Gateway [icon: aws-internet-gateway]
-    NAT Gateway A [icon: aws-nat-gateway]
-  }
-
-  Public Subnet AZ-B [icon: aws-subnet, color: green] {
-    NAT Gateway B [icon: aws-nat-gateway]
-  }
-
-  Private Subnet AZ-A [icon: aws-subnet, color: orange] {
-    Lambda Functions [icon: aws-lambda]
-  }
-
-  Private Subnet AZ-B [icon: aws-subnet, color: orange] {
-    Lambda Functions [icon: aws-lambda]
-  }
-
-  VPC Endpoints [icon: aws-endpoints, color: purple] {
-    S3 Gateway Endpoint [icon: aws-s3]
-    Interface Endpoints [icon: aws-privatelink]
-  }
-}
-
-// AWS Managed Services
-
-Compute [icon: aws-lambda, color: orange] {
-  Lambda (17 functions) [icon: aws-lambda]
-  Step Functions [icon: aws-step-functions]
-}
-
-Storage [icon: aws-s3, color: green] {
-  S3 Bucket [icon: aws-s3]
-}
-
-AI-ML [icon: aws-bedrock, color: purple] {
-  Bedrock (Claude 3.5) [icon: aws-bedrock]
-  Textract (OCR) [icon: aws-textract]
-}
-
-API-Integration [icon: aws-api-gateway, color: blue] {
-  API Gateway [icon: aws-api-gateway]
-  Lambda Function URLs [icon: aws-lambda]
-}
-
-Container-Ops [icon: aws-ecr, color: orange] {
-  ECR (Container Registry) [icon: aws-ecr]
-}
-
-Security [icon: aws-secrets-manager, color: red] {
-  Secrets Manager [icon: aws-secrets-manager]
-}
-
-Monitoring [icon: aws-cloudwatch, color: grey] {
-  CloudWatch Logs [icon: aws-cloudwatch]
-}
-
-// External Services
-
-External [icon: globe, color: blue] {
+Internet [icon: globe, color: blue] {
   Slack API [icon: slack]
 }
 
-// Network Flow
+VPC us-west-2 [icon: aws-vpc, color: blue] {
 
-Internet Gateway > NAT Gateway A
-Internet Gateway > NAT Gateway B
+  Public Subnets (Multi-AZ) [icon: aws-subnet, color: green] {
+    Internet Gateway [icon: aws-internet-gateway]
+    NAT Gateways (AZ-A, AZ-B) [icon: aws-nat-gateway]
+  }
 
+  Private Subnets (Multi-AZ) [icon: aws-subnet, color: orange] {
+
+    Compute Layer [icon: aws-lambda, color: orange] {
+      Lambda Functions (17) [icon: aws-lambda]
+      Step Functions [icon: aws-step-functions]
+    }
+
+    Public Endpoints [icon: aws-endpoints, color: yellow] {
+      Lambda Function URLs [icon: aws-lambda]
+      API Gateway [icon: aws-api-gateway]
+    }
+  }
+
+  VPC Endpoints [icon: aws-privatelink, color: purple] {
+
+    Gateway Endpoints [icon: aws-s3, color: green] {
+      S3 Gateway [icon: aws-s3]
+    }
+
+    Interface Endpoints [icon: aws-privatelink, color: purple] {
+      Bedrock [icon: aws-bedrock]
+      Textract [icon: aws-textract]
+      Secrets Manager [icon: aws-secrets-manager]
+      ECR [icon: aws-ecr]
+      CloudWatch Logs [icon: aws-cloudwatch]
+    }
+  }
+}
+
+AWS Managed Services [icon: aws, color: orange] {
+
+  AI-ML [icon: aws-bedrock, color: purple] {
+    Bedrock (Claude 3.5 Sonnet) [icon: aws-bedrock]
+    Textract (OCR) [icon: aws-textract]
+  }
+
+  Storage [icon: aws-s3, color: green] {
+    S3 (ledgeriq bucket) [icon: aws-s3]
+  }
+
+  Security-Ops [icon: aws-secrets-manager, color: red] {
+    Secrets Manager [icon: aws-secrets-manager]
+    ECR (Container Images) [icon: aws-ecr]
+    CloudWatch Logs [icon: aws-cloudwatch]
+  }
+}
+
+// Network Flow (Critical Paths)
+
+// Inbound: Slack to VPC
 Slack API > Lambda Function URLs
 
-Lambda Function URLs > Lambda Functions
+// Outbound: VPC to Slack
+NAT Gateways (AZ-A, AZ-B) > Slack API
 
-NAT Gateway A > Lambda Functions
-NAT Gateway B > Lambda Functions
-
-Lambda Functions > Slack API
-
-// VPC Connectivity
-
-Lambda Functions > S3 Gateway Endpoint
-Lambda Functions > Interface Endpoints
-
-S3 Gateway Endpoint > S3 Bucket
-
-Interface Endpoints > Bedrock (Claude 3.5)
+// Private Connectivity: VPC to AWS Services
+S3 Gateway > S3 (ledgeriq bucket)
+Interface Endpoints > Bedrock (Claude 3.5 Sonnet)
 Interface Endpoints > Textract (OCR)
 Interface Endpoints > Secrets Manager
-Interface Endpoints > ECR (Container Registry)
-Interface Endpoints > CloudWatch Logs
-Interface Endpoints > Step Functions
 
-// Service Integration
-
-API Gateway > Lambda Functions
-Lambda Functions > Step Functions
-Step Functions > Lambda Functions
+// Internal: Compute orchestration
+Lambda Functions (17) > Step Functions
