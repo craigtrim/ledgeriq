@@ -73,41 +73,6 @@ See [architecture/README.md](architecture/README.md) for production hardening ch
 - Backup/restore procedures
 - Disaster recovery runbook
 
-## Contributing
-
-When adding documentation:
-
-1. **Architecture changes** → Update `architecture/infrastructure.eraser` and `architecture/README.md`
-2. **Design decisions** → Create new ADR in `design/adr/XXX-decision-name.md`
-3. **API changes** → Update OpenAPI spec in `api/openapi.yaml` (future)
-4. **Deployment guides** → Add to `deployment/` (future)
-
-## ADR Template
-
-Architecture Decision Records follow this format:
-
-```markdown
-# ADR XXX: Decision Title
-
-**Status:** Proposed | Accepted | Deprecated | Superseded
-**Date:** YYYY-MM-DD
-**Deciders:** Name(s)
-**Context:** What problem are we solving?
-
-## Context
-Background and problem statement...
-
-## Decision
-What we decided to do...
-
-## Consequences
-Positive and negative outcomes...
-
-## Alternatives Considered
-Other options and why we rejected them...
-
-## References
-Links to relevant docs...
 ```
 
 ## License
