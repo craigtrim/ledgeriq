@@ -3,7 +3,7 @@
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![AWS Lambda](https://img.shields.io/badge/AWS-Lambda-FF9900?logo=amazon-aws&logoColor=white)
 ![LangChain](https://img.shields.io/badge/Framework-LangChain-black)
-![Claude](https://img.shields.io/badge/Model-Claude%203.5-blueviolet)
+![Claude](https://img.shields.io/badge/Model-Claude%204.5-blueviolet)
 ![Textract](https://img.shields.io/badge/OCR-Textract-FF9900)
 ![Slack](https://img.shields.io/badge/Integration-Slack-4A154B?logo=slack&logoColor=white)
 ![Architecture](https://img.shields.io/badge/Architecture-Serverless-green)
@@ -105,7 +105,7 @@ The agent autonomously:
 ## Technology Stack
 
 ### AI/ML
-- **Claude 3.5 Sonnet** (AWS Bedrock) - ReAct agent reasoning & extraction
+- **Claude 4.5 Sonnet** (AWS Bedrock) - ReAct agent reasoning & extraction
 - **LangChain** - Agent framework with tool orchestration
 - **AWS Textract** - Production-grade OCR
 
@@ -305,6 +305,3 @@ This is a demo project showcasing agentic architecture for document processing. 
 
 MIT
 
----
-
-**Built with Claude Code** 🤖

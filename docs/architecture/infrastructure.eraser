@@ -40,7 +40,7 @@ VPC us-west-2 [icon: aws-vpc, color: blue] {
 AWS Managed Services [icon: aws, color: orange] {
 
   AI-ML [icon: aws-bedrock, color: purple] {
-    Bedrock (Claude 3.5 Sonnet) [icon: aws-bedrock]
+    Bedrock (Claude 4.5 Sonnet) [icon: aws-bedrock]
     Textract (OCR) [icon: aws-textract]
   }
 
@@ -59,7 +59,7 @@ NAT Gateways (AZ-A, AZ-B) > Slack API
 
 // Private Connectivity: VPC to AWS Services
 S3 Gateway > S3 (ledgeriq bucket)
-Interface Endpoints > Bedrock (Claude 3.5 Sonnet)
+Interface Endpoints > Bedrock (Claude 4.5 Sonnet)
 Interface Endpoints > Textract (OCR)
 
 // Internal: Compute orchestration

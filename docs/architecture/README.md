@@ -27,7 +27,7 @@ LedgerIQ implements a production-grade serverless architecture on AWS with prope
 
 **Interface Endpoints** (hourly cost):
 - Secrets Manager - Secure credential retrieval
-- Bedrock - Claude 3.5 Sonnet API calls
+- Bedrock - Claude 4.5 Sonnet API calls
 - Textract - OCR processing
 - Lambda - Cross-Lambda invocation
 - ECR - Container image pulls
@@ -213,7 +213,7 @@ Key architectural decisions documented in `docs/design/adr/`:
 | VPC Endpoints | 7 endpoints × 720 hours | ~$50 |
 | S3 | 100 GB storage + requests | ~$3 |
 | Textract | 1,000 pages (20% cache miss) | $0.30 |
-| Bedrock | Claude 3.5 API calls | ~$10 |
+| Bedrock | Claude 4.5 API calls | ~$10 |
 | Step Functions | 4 workflows × 1,000 executions | ~$1 |
 | API Gateway | 4 endpoints × 1,000 requests | ~$0.01 |
 | **Total** | | **~$131/month** |
