@@ -29,7 +29,7 @@ docs/
 
 ## Infrastructure Diagram
 
-![Infrastructure VPC Diagram](architecture/images/infrastructure-vpc.png)
+![Infrastructure VPC Diagram](https://raw.githubusercontent.com/craigtrim/ledgeriq/master/docs/architecture/images/infrastructure-vpc.png)
 
 The diagram shows:
 - **VPC Architecture** - Multi-AZ with public/private subnets

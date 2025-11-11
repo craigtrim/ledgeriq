@@ -44,7 +44,7 @@ The agent autonomously:
 
 ## Architecture
 
-![Infrastructure VPC Diagram](docs/architecture/images/infrastructure-vpc.png)
+![Infrastructure VPC Diagram](https://raw.githubusercontent.com/craigtrim/ledgeriq/master/docs/architecture/images/infrastructure-vpc.png)
 
 *Production-grade VPC architecture with multi-AZ deployment, private subnets, VPC endpoints, and managed AI/ML services. See [Architecture Documentation](docs/architecture/README.md) for detailed explanation.*
 
