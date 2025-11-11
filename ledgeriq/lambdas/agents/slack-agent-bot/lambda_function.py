@@ -15,9 +15,15 @@ from logging import Logger
 # ═══════════════════════════════════════════════════════════════════════════
 
 SECRET_NAME = os.environ.get('SECRET_NAME', 'slack/bot-token')
+S3_BUCKET = 'ledgeriq'
+ORCHESTRATOR_FUNCTION = 'langchain-orchestrator'
 
 # Cache token after first fetch
 _cached_token = None
+
+# AWS clients
+s3_client = boto3.client('s3', region_name='us-west-2')
+lambda_client = boto3.client('lambda', region_name='us-west-2')
 
 def get_slack_token() -> str:
     """Fetch Slack bot token from AWS Secrets Manager (cached)."""
@@ -81,6 +87,53 @@ def post_slack_message(channel: str, text: str, thread_ts: str = None) -> Dict[s
     )
 
     return response.json()
+
+
+def get_file_info(file_id: str) -> Dict[str, Any]:
+    """Get file information from Slack API."""
+    headers = {
+        'Authorization': f'Bearer {get_slack_token()}'
+    }
+    response = requests.get(
+        f'https://slack.com/api/files.info?file={file_id}',
+        headers=headers
+    )
+    data = response.json()
+    return data.get('file') if data.get('ok') else None
+
+
+def download_file_from_slack(url: str) -> bytes:
+    """Download file from Slack."""
+    headers = {
+        'Authorization': f'Bearer {get_slack_token()}'
+    }
+    response = requests.get(url, headers=headers)
+    return response.content if response.status_code == 200 else None
+
+
+def upload_to_s3(content: bytes, s3_key: str):
+    """Upload file content to S3."""
+    s3_client.put_object(
+        Bucket=S3_BUCKET,
+        Key=s3_key,
+        Body=content
+    )
+
+
+def invoke_orchestrator(s3_key: str, instruction: str, channel_id: str, thread_ts: str):
+    """Async invoke langchain-orchestrator Lambda."""
+    payload = {
+        's3_key': s3_key,
+        'instruction': instruction,
+        'channel_id': channel_id,
+        'thread_ts': thread_ts
+    }
+
+    lambda_client.invoke(
+        FunctionName=ORCHESTRATOR_FUNCTION,
+        InvocationType='Event',  # Async
+        Payload=json.dumps(payload)
+    )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -147,13 +200,40 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
                 file_id = slack_event.get('file_id')
                 logger.info(f"File uploaded: {file_id}")
 
-                response = post_slack_message(
-                    channel=channel,
-                    text=f"📄 I see you uploaded a file! (ID: {file_id})\n\nI'll process it soon!",
-                    thread_ts=thread_ts
+                # Get file info from Slack
+                file_info = get_file_info(file_id)
+                if not file_info:
+                    post_slack_message(channel, "❌ Couldn't retrieve file information", thread_ts)
+                    return {'statusCode': 200, 'body': 'OK'}
+
+                file_url = file_info.get('url_private')
+                file_name = file_info.get('name', f'file_{file_id}')
+
+                # Download file from Slack
+                file_content = download_file_from_slack(file_url)
+                if not file_content:
+                    post_slack_message(channel, "❌ Couldn't download file", thread_ts)
+                    return {'statusCode': 200, 'body': 'OK'}
+
+                # Upload to S3
+                s3_key = f"uploads/{file_name}"
+                upload_to_s3(file_content, s3_key)
+                logger.info(f"Uploaded to S3: {s3_key}")
+
+                # Post initial message
+                post_slack_message(
+                    channel,
+                    f"📄 Processing `{file_name}`...",
+                    thread_ts
                 )
 
-                logger.info(f"Posted message: {response}")
+                # Get instruction from message text if available
+                instruction = slack_event.get('text', '')
+
+                # Async invoke langchain-orchestrator
+                invoke_orchestrator(s3_key, instruction, channel, thread_ts)
+
+                logger.info(f"Invoked orchestrator for {s3_key}")
 
         return {
             'statusCode': 200,

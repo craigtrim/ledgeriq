@@ -5,7 +5,8 @@ import os
 import json
 import logging
 import requests
-from typing import Dict, Any, List
+import boto3
+from typing import Dict, Any, List, Optional
 from logging import Logger
 from pathlib import Path
 
@@ -13,6 +14,7 @@ from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools import Tool
 from langchain_aws import ChatBedrock
 from langchain.prompts import PromptTemplate
+from langchain.callbacks.base import BaseCallbackHandler
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -29,6 +31,75 @@ def configure_logger(function_name: str) -> Logger:
 
 
 logger: logging.Logger = configure_logger(__name__)
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# Slack Integration
+# ═══════════════════════════════════════════════════════════════════════════
+
+SECRET_NAME = os.environ.get('SECRET_NAME', 'slack/bot-token')
+_cached_slack_token = None
+
+def get_slack_token() -> str:
+    """Fetch Slack bot token from AWS Secrets Manager (cached)."""
+    global _cached_slack_token
+    if _cached_slack_token is None:
+        secrets_client = boto3.client('secretsmanager', region_name='us-west-2')
+        response = secrets_client.get_secret_value(SecretId=SECRET_NAME)
+        _cached_slack_token = response['SecretString']
+    return _cached_slack_token
+
+
+def post_to_slack(channel: str, text: str, thread_ts: Optional[str] = None):
+    """Post message to Slack channel/thread."""
+    try:
+        payload = {'channel': channel, 'text': text}
+        if thread_ts:
+            payload['thread_ts'] = thread_ts
+
+        headers = {
+            'Authorization': f'Bearer {get_slack_token()}',
+            'Content-Type': 'application/json'
+        }
+
+        response = requests.post(
+            'https://slack.com/api/chat.postMessage',
+            headers=headers,
+            json=payload
+        )
+        logger.info(f"Posted to Slack: {text[:50]}...")
+        return response.json()
+    except Exception as e:
+        logger.error(f"Failed to post to Slack: {e}")
+
+
+class SlackProgressCallback(BaseCallbackHandler):
+    """Callback to post agent progress to Slack."""
+
+    def __init__(self, channel: str, thread_ts: str):
+        self.channel = channel
+        self.thread_ts = thread_ts
+        self.tool_count = 0
+
+    def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs):
+        """Post when tool starts."""
+        tool_name = serialized.get('name', 'unknown')
+        self.tool_count += 1
+        post_to_slack(
+            self.channel,
+            f"🔧 Step {self.tool_count}: Calling `{tool_name}`...",
+            self.thread_ts
+        )
+
+    def on_tool_end(self, output: str, **kwargs):
+        """Post when tool completes."""
+        # Truncate long outputs
+        summary = output[:100] + "..." if len(output) > 100 else output
+        post_to_slack(
+            self.channel,
+            f"✅ Completed: {summary}",
+            self.thread_ts
+        )
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -158,110 +229,85 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Lambda handler for LangChain document processing orchestrator.
 
-    Expected input (simple):
-    {
-        "s3_key": "uploads/receipt.pdf"
-    }
-
-    Expected input (with instruction):
+    Expected input:
     {
         "s3_key": "uploads/receipt.pdf",
-        "instruction": "Extract issuer and total amount"
+        "instruction": "Extract all fields",
+        "channel_id": "C12345",
+        "thread_ts": "1234567890.123456"
     }
 
-    Expected input (batch):
-    {
-        "s3_keys": ["uploads/receipt1.pdf", "uploads/receipt2.pdf"],
-        "instruction": "Find all Home Depot purchases and sum the totals"
-    }
-
-    Returns:
-    {
-        "statusCode": 200,
-        "body": {
-            "result": "...",
-            "agent_steps": 4
-        }
-    }
+    Posts plan and progress updates to Slack thread.
     """
     logger.info(f"🚀 Incoming Event: {event}")
 
     try:
         # Parse input
-        if isinstance(event.get('body'), str):
-            body = json.loads(event['body'])
-        else:
-            body = event
+        body = event if not event.get('body') else json.loads(event['body'])
 
-        # Get document(s)
+        # Get required parameters
         s3_key = body.get('s3_key')
-        s3_keys = body.get('s3_keys')
+        channel_id = body.get('channel_id')
+        thread_ts = body.get('thread_ts')
 
-        if not s3_key and not s3_keys:
-            return {
-                'statusCode': 400,
-                'body': json.dumps({'error': 'Missing s3_key or s3_keys parameter'})
-            }
-
-        # Normalize to list
-        documents = s3_keys if s3_keys else [s3_key]
+        if not s3_key:
+            return {'statusCode': 400, 'body': json.dumps({'error': 'Missing s3_key'})}
 
         # Get user instruction or use default
-        user_instruction = body.get('instruction')
+        user_instruction = body.get('instruction') or \
+            "Extract all relevant financial information from this document (document type, issuer, dates, amounts, etc.)"
 
-        if not user_instruction:
-            # Default instruction
-            if len(documents) == 1:
-                user_instruction = "Extract all relevant financial information from this document (document type, issuer, dates, amounts, etc.)"
-            else:
-                user_instruction = f"Process all {len(documents)} documents and extract relevant financial information from each"
+        logger.info(f"Processing: {s3_key} with instruction: {user_instruction}")
 
-        logger.info(f"Processing {len(documents)} document(s) with instruction: {user_instruction}")
+        # Post to Slack if channel provided
+        if channel_id and thread_ts:
+            post_to_slack(channel_id, f"📋 *My Plan:*\n1. Extract text from document\n2. Classify document type\n3. Extract relevant fields based on type\n4. Return structured results", thread_ts)
 
-        # Create agent
+        # Create agent with Slack callback
         agent_executor = create_agent()
 
-        # Format prompt for agent
-        if len(documents) == 1:
-            prompt = f"""
-{user_instruction}
+        # Add Slack callback if channel provided
+        callbacks = []
+        if channel_id and thread_ts:
+            callbacks.append(SlackProgressCallback(channel_id, thread_ts))
 
-Document: {documents[0]}
-"""
-        else:
-            docs_list = "\n".join([f"- {doc}" for doc in documents])
-            prompt = f"""
-{user_instruction}
+        # Format prompt
+        prompt = f"{user_instruction}\n\nDocument: {s3_key}"
 
-Documents:
-{docs_list}
-"""
+        # Execute agent
+        result = agent_executor.invoke({"input": prompt}, config={"callbacks": callbacks})
 
-        result = agent_executor.invoke({"input": prompt})
+        logger.info(f"✅ Agent completed successfully")
 
-        logger.info(f"✅ Agent completed successfully: {result}")
+        # Post final results to Slack
+        if channel_id and thread_ts:
+            post_to_slack(
+                channel_id,
+                f"✨ *Complete!*\n\n```\n{json.dumps(result['output'], indent=2)}\n```",
+                thread_ts
+            )
 
         return {
             'statusCode': 200,
-            'headers': {
-                'Content-Type': 'application/json'
-            },
             'body': json.dumps({
                 'success': True,
-                'instruction': user_instruction,
-                'documents': documents,
-                'result': result['output'],
-                'agent_steps': len(result.get('intermediate_steps', []))
+                'result': result['output']
             })
         }
 
     except Exception as e:
         logger.error(f"Handler failed: {str(e)}", exc_info=True)
+
+        # Post error to Slack if channel provided
+        if 'channel_id' in locals() and 'thread_ts' in locals() and channel_id and thread_ts:
+            post_to_slack(
+                channel_id,
+                f"❌ *Error:* {str(e)}",
+                thread_ts
+            )
+
         return {
             'statusCode': 500,
-            'headers': {
-                'Content-Type': 'application/json'
-            },
             'body': json.dumps({
                 'success': False,
                 'error': str(e)
