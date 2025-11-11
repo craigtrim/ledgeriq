@@ -204,20 +204,29 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     """
     Lambda handler for LangChain document processing orchestrator.
 
-    Expected input:
+    Expected input (simple):
     {
         "s3_key": "uploads/receipt.pdf"
+    }
+
+    Expected input (with instruction):
+    {
+        "s3_key": "uploads/receipt.pdf",
+        "instruction": "Extract issuer and total amount"
+    }
+
+    Expected input (batch):
+    {
+        "s3_keys": ["uploads/receipt1.pdf", "uploads/receipt2.pdf"],
+        "instruction": "Find all Home Depot purchases and sum the totals"
     }
 
     Returns:
     {
         "statusCode": 200,
         "body": {
-            "md5_hash": "...",
-            "document_type": "receipt",
-            "issuer_name": "Home Depot",
-            "service_date": "2025-09-29",
-            "agent_reasoning": "..."
+            "result": "...",
+            "agent_steps": 4
         }
     }
     """
@@ -230,20 +239,49 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         else:
             body = event
 
+        # Get document(s)
         s3_key = body.get('s3_key')
-        if not s3_key:
+        s3_keys = body.get('s3_keys')
+
+        if not s3_key and not s3_keys:
             return {
                 'statusCode': 400,
-                'body': json.dumps({'error': 'Missing s3_key parameter'})
+                'body': json.dumps({'error': 'Missing s3_key or s3_keys parameter'})
             }
 
-        logger.info(f"Processing document: {s3_key}")
+        # Normalize to list
+        documents = s3_keys if s3_keys else [s3_key]
+
+        # Get user instruction or use default
+        user_instruction = body.get('instruction')
+
+        if not user_instruction:
+            # Default instruction
+            if len(documents) == 1:
+                user_instruction = "Extract all relevant financial information from this document (document type, issuer, dates, amounts, etc.)"
+            else:
+                user_instruction = f"Process all {len(documents)} documents and extract relevant financial information from each"
+
+        logger.info(f"Processing {len(documents)} document(s) with instruction: {user_instruction}")
 
         # Create agent
         agent_executor = create_agent()
 
-        # Execute agent - just point it at the document
-        prompt = f"Process this financial document and extract all relevant information: {s3_key}"
+        # Format prompt for agent
+        if len(documents) == 1:
+            prompt = f"""
+{user_instruction}
+
+Document: {documents[0]}
+"""
+        else:
+            docs_list = "\n".join([f"- {doc}" for doc in documents])
+            prompt = f"""
+{user_instruction}
+
+Documents:
+{docs_list}
+"""
 
         result = agent_executor.invoke({"input": prompt})
 
@@ -256,6 +294,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             },
             'body': json.dumps({
                 'success': True,
+                'instruction': user_instruction,
+                'documents': documents,
                 'result': result['output'],
                 'agent_steps': len(result.get('intermediate_steps', []))
             })
