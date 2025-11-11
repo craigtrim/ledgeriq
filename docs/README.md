@@ -27,15 +27,9 @@ docs/
 - [ADR 001: Agents Replace BP Layer](design/adr/001-agents-replace-bp-layer.md) - Core architectural principle
 - [ADR 002: Two-Stage Extraction](design/adr/002-two-stage-extraction.md) - Extractor organization pattern
 
-## Using the Infrastructure Diagram
+## Infrastructure Diagram
 
-The infrastructure diagram uses [eraser.io](https://eraser.io) syntax:
-
-1. Copy contents of `architecture/infrastructure.eraser`
-2. Open [eraser.io](https://eraser.io)
-3. Create new diagram → Choose "Diagram as Code"
-4. Paste the eraser syntax
-5. Export as PNG/SVG for presentations
+![Infrastructure VPC Diagram](architecture/images/infrastructure-vpc.png)
 
 The diagram shows:
 - **VPC Architecture** - Multi-AZ with public/private subnets

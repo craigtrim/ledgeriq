@@ -4,6 +4,36 @@
 
 LedgerIQ implements a production-grade serverless architecture on AWS with proper VPC isolation, security boundaries, and cost optimization.
 
+![Infrastructure VPC Diagram](images/infrastructure-vpc.png)
+
+### Diagram Explanation
+
+The infrastructure diagram shows:
+
+**VPC us-west-2** (blue boundary):
+- **Public Subnets (Multi-AZ)** - Internet Gateway and dual NAT Gateways for high availability
+- **Private Subnets (Multi-AZ)** - Compute layer (17 Lambda functions + Step Functions) and public endpoints (Lambda Function URLs + API Gateway)
+- **VPC Endpoints** - Gateway endpoint for S3, Interface endpoints for Bedrock and Textract
+
+**AWS Managed Services** (outside VPC):
+- **AI-ML** - Bedrock (Claude 4.5 Sonnet) and Textract (OCR)
+- **Storage** - S3 (ledgeriq bucket)
+
+**Network Flow** (6 critical paths):
+1. **Inbound**: Slack API → Lambda Function URLs (public HTTPS endpoint)
+2. **Outbound**: NAT Gateways → Slack API (Lambda responses)
+3. **Private Connectivity**: S3 Gateway → S3 bucket (no internet routing)
+4. **Private Connectivity**: Interface Endpoints → Bedrock (PrivateLink)
+5. **Private Connectivity**: Interface Endpoints → Textract (PrivateLink)
+6. **Internal Orchestration**: Lambda Functions → Step Functions
+
+This architecture demonstrates:
+- **Network Isolation**: Lambda functions in private subnets with no direct internet access
+- **High Availability**: Multi-AZ deployment with redundant NAT Gateways
+- **Cost Optimization**: VPC endpoints eliminate NAT Gateway data transfer costs for AWS service calls
+- **Security**: Private connectivity to AWS services via PrivateLink, secrets in Secrets Manager
+- **Scalability**: Auto-scaling Lambda compute with Step Functions orchestration
+
 ### Key Infrastructure Decisions
 
 #### VPC Design
