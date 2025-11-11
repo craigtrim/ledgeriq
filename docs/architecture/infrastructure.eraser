@@ -1,0 +1,210 @@
+// VPC Architecture - LedgerIQ Serverless Document Processing
+
+VPC [icon: aws-vpc, color: blue] {
+
+  Public Subnet A [icon: aws-subnet, color: green] {
+    NAT Gateway A [icon: aws-nat-gateway]
+    Internet Gateway [icon: aws-internet-gateway]
+  }
+
+  Public Subnet B [icon: aws-subnet, color: green] {
+    NAT Gateway B [icon: aws-nat-gateway]
+  }
+
+  Private Subnet A [icon: aws-subnet, color: orange] {
+
+    Pipeline Services [icon: table] {
+      pdf-to-hash [icon: aws-lambda]
+      pdf-to-images [icon: aws-lambda]
+      img-to-ocr [icon: aws-lambda]
+      ocr-to-text [icon: aws-lambda]
+      merge-ocr-results [icon: aws-lambda]
+    }
+
+    Common Extractors [icon: table] {
+      extract-dates [icon: aws-lambda]
+      extract-organizations [icon: aws-lambda]
+    }
+
+    Specific Extractors [icon: table] {
+      classify-document-type [icon: aws-lambda]
+      extract-issuer-name [icon: aws-lambda]
+      extract-service-date [icon: aws-lambda]
+    }
+  }
+
+  Private Subnet B [icon: aws-subnet, color: orange] {
+
+    API Layer [icon: table] {
+      extract-document-text-api [icon: aws-lambda]
+      classify-document-type-api [icon: aws-lambda]
+      extract-issuer-name-api [icon: aws-lambda]
+      extract-service-date-api [icon: aws-lambda]
+    }
+
+    Agentic Layer [icon: table] {
+      slack-agent-bot [icon: aws-lambda]
+      langchain-orchestrator [icon: aws-lambda]
+    }
+
+    Utilities [icon: table] {
+      list-files-by-hash [icon: aws-lambda]
+    }
+  }
+
+  VPC Endpoints [icon: aws-endpoints, color: purple] {
+    S3 Gateway Endpoint [icon: aws-s3]
+    Secrets Manager Endpoint [icon: aws-secrets-manager]
+    Bedrock Endpoint [icon: aws-bedrock]
+    Textract Endpoint [icon: aws-textract]
+    Lambda Endpoint [icon: aws-lambda]
+    ECR Endpoint [icon: aws-ecr]
+    CloudWatch Endpoint [icon: aws-cloudwatch]
+  }
+}
+
+// AWS Services (Outside VPC, accessed via endpoints)
+
+Storage [icon: aws-s3, color: green] {
+  ledgeriq-bucket [icon: aws-s3]
+  uploads/ [icon: database]
+  pdf-to-hash/hashed/ [icon: database]
+  pdf-to-images/images/ [icon: database]
+  img-to-ocr/ocr/ [icon: database]
+}
+
+Orchestration [icon: aws-step-functions, color: red] {
+  extract-document-text-sfn [icon: aws-step-functions]
+  classify-document-type-sfn [icon: aws-step-functions]
+  extract-issuer-name-sfn [icon: aws-step-functions]
+  extract-service-date-sfn [icon: aws-step-functions]
+}
+
+Container Registry [icon: aws-ecr, color: orange] {
+  lambda-base-repo [icon: docker]
+  slack-agent-bot-repo [icon: docker]
+  langchain-orchestrator-repo [icon: docker]
+  pipeline-lambdas-repos [icon: docker]
+  extractor-lambdas-repos [icon: docker]
+}
+
+AI Services [icon: aws-bedrock, color: purple] {
+  Claude-3.5-Sonnet [icon: aws-bedrock]
+  Textract [icon: aws-textract]
+}
+
+Security [icon: aws-secrets-manager, color: red] {
+  slack-bot-token [icon: aws-secrets-manager]
+}
+
+API Gateway [icon: aws-api-gateway, color: blue] {
+  /prod/extract_document_text_api_get [icon: aws-api-gateway]
+  /prod/classify_document_type_api_get [icon: aws-api-gateway]
+  /prod/extract_issuer_name_api_get [icon: aws-api-gateway]
+  /prod/extract_service_date_api_get [icon: aws-api-gateway]
+}
+
+Function URLs [icon: aws-lambda, color: yellow] {
+  slack-agent-bot-url [icon: aws-lambda]
+}
+
+// External Services
+
+External [icon: globe, color: blue] {
+  Slack Events API [icon: slack]
+  Slack Web API [icon: slack]
+}
+
+// Network Flow
+
+Internet Gateway > NAT Gateway A
+Internet Gateway > NAT Gateway B
+
+NAT Gateway A > slack-agent-bot
+NAT Gateway A > langchain-orchestrator
+NAT Gateway B > slack-agent-bot
+NAT Gateway B > langchain-orchestrator
+
+Slack Events API > slack-agent-bot-url
+slack-agent-bot > Slack Web API
+langchain-orchestrator > Slack Web API
+
+slack-agent-bot-url > slack-agent-bot
+
+// Lambda to VPC Endpoints
+
+slack-agent-bot > S3 Gateway Endpoint
+slack-agent-bot > Secrets Manager Endpoint
+slack-agent-bot > Lambda Endpoint
+
+langchain-orchestrator > Secrets Manager Endpoint
+langchain-orchestrator > Bedrock Endpoint
+
+pdf-to-hash > S3 Gateway Endpoint
+pdf-to-images > S3 Gateway Endpoint
+img-to-ocr > S3 Gateway Endpoint
+img-to-ocr > Textract Endpoint
+ocr-to-text > S3 Gateway Endpoint
+merge-ocr-results > S3 Gateway Endpoint
+
+extract-dates > S3 Gateway Endpoint
+extract-dates > Bedrock Endpoint
+extract-organizations > S3 Gateway Endpoint
+extract-organizations > Bedrock Endpoint
+
+classify-document-type > S3 Gateway Endpoint
+classify-document-type > Bedrock Endpoint
+extract-issuer-name > S3 Gateway Endpoint
+extract-issuer-name > Bedrock Endpoint
+extract-service-date > S3 Gateway Endpoint
+extract-service-date > Bedrock Endpoint
+
+// VPC Endpoints to Services
+
+S3 Gateway Endpoint > ledgeriq-bucket
+Secrets Manager Endpoint > slack-bot-token
+Bedrock Endpoint > Claude-3.5-Sonnet
+Textract Endpoint > Textract
+ECR Endpoint > Container Registry
+
+// API Gateway Integration
+
+API Gateway > extract-document-text-api
+API Gateway > classify-document-type-api
+API Gateway > extract-issuer-name-api
+API Gateway > extract-service-date-api
+
+// API to Step Functions
+
+extract-document-text-api > extract-document-text-sfn
+classify-document-type-api > classify-document-type-sfn
+extract-issuer-name-api > extract-issuer-name-sfn
+extract-service-date-api > extract-service-date-sfn
+
+// Step Functions to Lambdas
+
+extract-document-text-sfn > pdf-to-hash
+extract-document-text-sfn > pdf-to-images
+extract-document-text-sfn > img-to-ocr
+extract-document-text-sfn > ocr-to-text
+extract-document-text-sfn > merge-ocr-results
+
+classify-document-type-sfn > list-files-by-hash
+classify-document-type-sfn > classify-document-type
+
+extract-issuer-name-sfn > list-files-by-hash
+extract-issuer-name-sfn > extract-issuer-name
+
+extract-service-date-sfn > list-files-by-hash
+extract-service-date-sfn > extract-service-date
+
+// Agent Orchestration
+
+langchain-orchestrator > API Gateway
+
+// Storage Flow
+
+slack-agent-bot > uploads/
+pdf-to-hash > pdf-to-hash/hashed/
+pdf-to-images > pdf-to-images/images/
+img-to-ocr > img-to-ocr/ocr/
