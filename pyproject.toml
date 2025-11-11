@@ -22,6 +22,9 @@ keywords = [
     "aws",
     "lambda",
     "fintech",
+    "langchain",
+    "agentic",
+    "orchestration",
 ]
 
 classifiers = [
@@ -49,6 +52,8 @@ boto3 = "^1.35.0"
 requests = "^2.32.3"
 tabulate = "*"
 pandas = "*"
+langchain = "^0.1.0"
+langchain-aws = "^0.1.0"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8.3.3"
