@@ -5,24 +5,14 @@ import os
 import json
 import logging
 import requests
-from typing import Dict, Any
+from typing import Dict, Any, List
 from logging import Logger
+from pathlib import Path
 
 from langchain.agents import AgentExecutor, create_react_agent
 from langchain.tools import Tool
 from langchain_aws import ChatBedrock
 from langchain.prompts import PromptTemplate
-
-
-# ═══════════════════════════════════════════════════════════════════════════
-# Configuration
-# ═══════════════════════════════════════════════════════════════════════════
-
-# API Gateway endpoints
-API_EXTRACT_TEXT = "https://j7xx9pgk26.execute-api.us-west-2.amazonaws.com/prod/extract_document_text_api_get"
-API_CLASSIFY_TYPE = "https://6ylln8hold.execute-api.us-west-2.amazonaws.com/prod/classify_document_type_api_get"
-API_EXTRACT_ISSUER = "https://xjjcmfpgv2.execute-api.us-west-2.amazonaws.com/prod/extract_issuer_name_api_get"
-API_EXTRACT_DATE = "https://jzwcwvlct8.execute-api.us-west-2.amazonaws.com/prod/extract_service_data_api_get"
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -42,108 +32,72 @@ logger: logging.Logger = configure_logger(__name__)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
-# Tool Definitions
+# Tool Loading
 # ═══════════════════════════════════════════════════════════════════════════
 
-def extract_document_text(s3_key: str) -> str:
+def load_tools_config() -> List[Dict[str, Any]]:
+    """Load tool definitions from JSON file."""
+    config_path = Path(__file__).parent / 'tools.json'
+    with open(config_path, 'r') as f:
+        config = json.load(f)
+    return config['tools']
+
+
+def create_api_tool_function(tool_def: Dict[str, Any]):
     """
-    Extract OCR text from PDF or image document. Always call this first.
+    Create a callable function for an API tool from JSON definition.
 
     Args:
-        s3_key: S3 key for the document (e.g., 'uploads/receipt.pdf')
+        tool_def: Tool definition from tools.json
 
     Returns:
-        JSON string with md5_hash, input_file, and ocr_files
+        Callable function that calls the API
     """
-    logger.info(f"Calling extract_document_text API for: {s3_key}")
-    response = requests.get(API_EXTRACT_TEXT, params={"key": s3_key}, timeout=120)
-    response.raise_for_status()
-    result = response.json()
-    logger.info(f"Extract text result: {result}")
-    return json.dumps(result)
+    def call_api(*args, **kwargs) -> str:
+        # Get the first positional arg or first kwarg value as the input
+        if args:
+            input_value = args[0]
+        else:
+            input_value = list(kwargs.values())[0]
 
+        # Build params dict using input_param from config
+        params = {tool_def['input_param']: input_value}
 
-def classify_document_type(md5_hash: str) -> str:
-    """
-    Classify document type (receipt, invoice, EOB, etc.). Call after extracting text.
+        logger.info(f"Calling {tool_def['name']} API with params: {params}")
 
-    Args:
-        md5_hash: Document hash from extract_document_text
+        # Call the API
+        response = requests.get(
+            tool_def['url'],
+            params=params,
+            timeout=tool_def['timeout']
+        )
+        response.raise_for_status()
+        result = response.json()
 
-    Returns:
-        Document type as string (e.g., 'receipt', 'invoice')
-    """
-    logger.info(f"Calling classify_document_type API for: {md5_hash}")
-    response = requests.get(API_CLASSIFY_TYPE, params={"md5_hash": md5_hash}, timeout=30)
-    response.raise_for_status()
-    result = response.json()
-    logger.info(f"Classification result: {result}")
-    return json.dumps(result)
+        logger.info(f"{tool_def['name']} result: {result}")
+        return json.dumps(result)
 
-
-def extract_issuer_name(md5_hash: str) -> str:
-    """
-    Extract the company/merchant that issued the document.
-
-    Args:
-        md5_hash: Document hash from extract_document_text
-
-    Returns:
-        Issuer name as string (e.g., 'Home Depot')
-    """
-    logger.info(f"Calling extract_issuer_name API for: {md5_hash}")
-    response = requests.get(API_EXTRACT_ISSUER, params={"md5_hash": md5_hash}, timeout=30)
-    response.raise_for_status()
-    result = response.json()
-    logger.info(f"Issuer name result: {result}")
-    return json.dumps(result)
-
-
-def extract_service_date(md5_hash: str) -> str:
-    """
-    Extract the service date from the document.
-
-    Args:
-        md5_hash: Document hash from extract_document_text
-
-    Returns:
-        Service date as string (e.g., '2025-09-29')
-    """
-    logger.info(f"Calling extract_service_date API for: {md5_hash}")
-    response = requests.get(API_EXTRACT_DATE, params={"md5_hash": md5_hash}, timeout=30)
-    response.raise_for_status()
-    result = response.json()
-    logger.info(f"Service date result: {result}")
-    return json.dumps(result)
+    return call_api
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Agent Setup
 # ═══════════════════════════════════════════════════════════════════════════
 
-# Create LangChain tools from our API functions
+# Load tools from YAML config
+TOOL_CONFIGS = load_tools_config()
+
+# Create LangChain tools from config
 TOOLS = [
     Tool(
-        name="extract_document_text",
-        func=extract_document_text,
-        description=extract_document_text.__doc__
-    ),
-    Tool(
-        name="classify_document_type",
-        func=classify_document_type,
-        description=classify_document_type.__doc__
-    ),
-    Tool(
-        name="extract_issuer_name",
-        func=extract_issuer_name,
-        description=extract_issuer_name.__doc__
-    ),
-    Tool(
-        name="extract_service_date",
-        func=extract_service_date,
-        description=extract_service_date.__doc__
-    ),
+        name=tool_def['name'],
+        func=create_api_tool_function(tool_def),
+        description=tool_def['description']
+    )
+    for tool_def in TOOL_CONFIGS
 ]
+
+logger.info(f"Loaded {len(TOOLS)} tools from configuration")
 
 
 # React agent prompt template

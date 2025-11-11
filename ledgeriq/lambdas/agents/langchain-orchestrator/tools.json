@@ -1,0 +1,36 @@
+{
+  "tools": [
+    {
+      "name": "extract_document_text",
+      "url": "https://j7xx9pgk26.execute-api.us-west-2.amazonaws.com/prod/extract_document_text_api_get",
+      "method": "GET",
+      "timeout": 120,
+      "input_param": "key",
+      "description": "Extract OCR text from PDF or image document. Always call this first.\n\nArgs:\n    key: S3 key for the document (e.g., 'uploads/receipt.pdf')\n\nReturns:\n    JSON with md5_hash, input_file, and ocr_files array"
+    },
+    {
+      "name": "classify_document_type",
+      "url": "https://6ylln8hold.execute-api.us-west-2.amazonaws.com/prod/classify_document_type_api_get",
+      "method": "GET",
+      "timeout": 30,
+      "input_param": "md5_hash",
+      "description": "Classify document type (receipt, invoice, EOB, etc.). Call after extracting text.\n\nArgs:\n    md5_hash: Document hash from extract_document_text\n\nReturns:\n    Document type as string (e.g., 'receipt', 'invoice')"
+    },
+    {
+      "name": "extract_issuer_name",
+      "url": "https://xjjcmfpgv2.execute-api.us-west-2.amazonaws.com/prod/extract_issuer_name_api_get",
+      "method": "GET",
+      "timeout": 30,
+      "input_param": "md5_hash",
+      "description": "Extract the company/merchant that issued the document.\n\nArgs:\n    md5_hash: Document hash from extract_document_text\n\nReturns:\n    Issuer name as string (e.g., 'Home Depot')"
+    },
+    {
+      "name": "extract_service_date",
+      "url": "https://jzwcwvlct8.execute-api.us-west-2.amazonaws.com/prod/extract_service_data_api_get",
+      "method": "GET",
+      "timeout": 30,
+      "input_param": "md5_hash",
+      "description": "Extract the service date from the document.\n\nArgs:\n    md5_hash: Document hash from extract_document_text\n\nReturns:\n    Service date as string (e.g., '2025-09-29')"
+    }
+  ]
+}
