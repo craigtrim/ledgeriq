@@ -184,18 +184,55 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             # Handle message events
             if event_type in ['message', 'app_mention']:
                 text = slack_event.get('text', '')
+                files = slack_event.get('files', [])
+
                 logger.info(f"Message from {user}: {text}")
+                logger.info(f"Files attached: {len(files)}")
 
-                # Post simple response
-                response = post_slack_message(
-                    channel=channel,
-                    text=f"👋 Hello from LedgerIQ Agent! You said: '{text}'",
-                    thread_ts=thread_ts
-                )
+                # Check if message contains file uploads
+                if files:
+                    # Process first file
+                    file_info = files[0]
+                    file_id = file_info.get('id')
+                    file_url = file_info.get('url_private')
+                    file_name = file_info.get('name', f'file_{file_id}')
 
-                logger.info(f"Posted message: {response}")
+                    logger.info(f"File uploaded: {file_name} ({file_id})")
 
-            # Handle file uploads
+                    # Download file from Slack
+                    file_content = download_file_from_slack(file_url)
+                    if not file_content:
+                        post_slack_message(channel, "❌ Couldn't download file", thread_ts)
+                        return {'statusCode': 200, 'body': 'OK'}
+
+                    # Upload to S3
+                    s3_key = f"uploads/{file_name}"
+                    upload_to_s3(file_content, s3_key)
+                    logger.info(f"Uploaded to S3: {s3_key}")
+
+                    # Post initial message
+                    post_slack_message(
+                        channel,
+                        f"📄 Processing `{file_name}`...",
+                        thread_ts
+                    )
+
+                    # Get instruction from message text if available
+                    instruction = text
+
+                    # Async invoke langchain-orchestrator
+                    invoke_orchestrator(s3_key, instruction, channel, thread_ts)
+                    logger.info(f"Invoked orchestrator for {s3_key}")
+                else:
+                    # No files, just respond to text
+                    response = post_slack_message(
+                        channel=channel,
+                        text=f"👋 Hello from LedgerIQ Agent! You said: '{text}'",
+                        thread_ts=thread_ts
+                    )
+                    logger.info(f"Posted message: {response}")
+
+            # Handle file_shared events (legacy)
             elif event_type == 'file_shared':
                 file_id = slack_event.get('file_id')
                 logger.info(f"File uploaded: {file_id}")
