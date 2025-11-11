@@ -5,6 +5,7 @@ import os
 import json
 import logging
 import requests
+import boto3
 from typing import Dict, Any
 from logging import Logger
 
@@ -13,7 +14,16 @@ from logging import Logger
 # Configuration
 # ═══════════════════════════════════════════════════════════════════════════
 
-SLACK_BOT_TOKEN = os.environ.get('SLACK_BOT_TOKEN', '')
+SECRET_NAME = os.environ.get('SECRET_NAME', 'slack/bot-token')
+
+def get_slack_token() -> str:
+    """Fetch Slack bot token from AWS Secrets Manager."""
+    secrets_client = boto3.client('secretsmanager', region_name='us-west-2')
+    response = secrets_client.get_secret_value(SecretId=SECRET_NAME)
+    return response['SecretString']
+
+# Fetch token once on cold start
+SLACK_BOT_TOKEN = get_slack_token()
 
 
 # ═══════════════════════════════════════════════════════════════════════════
