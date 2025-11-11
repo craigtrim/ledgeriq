@@ -16,14 +16,17 @@ from logging import Logger
 
 SECRET_NAME = os.environ.get('SECRET_NAME', 'slack/bot-token')
 
-def get_slack_token() -> str:
-    """Fetch Slack bot token from AWS Secrets Manager."""
-    secrets_client = boto3.client('secretsmanager', region_name='us-west-2')
-    response = secrets_client.get_secret_value(SecretId=SECRET_NAME)
-    return response['SecretString']
+# Cache token after first fetch
+_cached_token = None
 
-# Fetch token once on cold start
-SLACK_BOT_TOKEN = get_slack_token()
+def get_slack_token() -> str:
+    """Fetch Slack bot token from AWS Secrets Manager (cached)."""
+    global _cached_token
+    if _cached_token is None:
+        secrets_client = boto3.client('secretsmanager', region_name='us-west-2')
+        response = secrets_client.get_secret_value(SecretId=SECRET_NAME)
+        _cached_token = response['SecretString']
+    return _cached_token
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -67,7 +70,7 @@ def post_slack_message(channel: str, text: str, thread_ts: str = None) -> Dict[s
         payload['thread_ts'] = thread_ts
 
     headers = {
-        'Authorization': f'Bearer {SLACK_BOT_TOKEN}',
+        'Authorization': f'Bearer {get_slack_token()}',
         'Content-Type': 'application/json'
     }
 
