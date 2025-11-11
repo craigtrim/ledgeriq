@@ -242,17 +242,8 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         # Create agent
         agent_executor = create_agent()
 
-        # Execute agent
-        prompt = f"""
-        Process this financial document and extract all relevant information: {s3_key}
-
-        Follow these steps:
-        1. Extract text from the document (you'll get an md5_hash)
-        2. Classify the document type
-        3. Based on the type, extract all relevant fields (issuer name, service date, etc.)
-
-        Return a structured summary of all extracted information.
-        """
+        # Execute agent - just point it at the document
+        prompt = f"Process this financial document and extract all relevant information: {s3_key}"
 
         result = agent_executor.invoke({"input": prompt})
 
