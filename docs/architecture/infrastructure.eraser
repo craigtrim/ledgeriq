@@ -33,9 +33,6 @@ VPC us-west-2 [icon: aws-vpc, color: blue] {
     Interface Endpoints [icon: aws-privatelink, color: purple] {
       Bedrock [icon: aws-bedrock]
       Textract [icon: aws-textract]
-      Secrets Manager [icon: aws-secrets-manager]
-      ECR [icon: aws-ecr]
-      CloudWatch Logs [icon: aws-cloudwatch]
     }
   }
 }
@@ -49,12 +46,6 @@ AWS Managed Services [icon: aws, color: orange] {
 
   Storage [icon: aws-s3, color: green] {
     S3 (ledgeriq bucket) [icon: aws-s3]
-  }
-
-  Security-Ops [icon: aws-secrets-manager, color: red] {
-    Secrets Manager [icon: aws-secrets-manager]
-    ECR (Container Images) [icon: aws-ecr]
-    CloudWatch Logs [icon: aws-cloudwatch]
   }
 }
 
@@ -70,7 +61,6 @@ NAT Gateways (AZ-A, AZ-B) > Slack API
 S3 Gateway > S3 (ledgeriq bucket)
 Interface Endpoints > Bedrock (Claude 3.5 Sonnet)
 Interface Endpoints > Textract (OCR)
-Interface Endpoints > Secrets Manager
 
 // Internal: Compute orchestration
 Lambda Functions (17) > Step Functions
