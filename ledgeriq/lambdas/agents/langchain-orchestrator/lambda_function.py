@@ -72,12 +72,106 @@ def post_to_slack(channel: str, text: str, thread_ts: str | None = None):
         logger.error(f"Failed to post to Slack: {e}")
 
 
+def create_canvas(title: str, channel: str, thread_ts: str) -> str | None:
+    """Create a Slack Canvas and return its ID."""
+    try:
+        headers = {
+            'Authorization': f'Bearer {get_slack_token()}',
+            'Content-Type': 'application/json'
+        }
+
+        # Initial canvas content
+        initial_content = """# 📄 Receipt Analysis Results
+
+*Processing document...*
+
+---
+
+## 🏢 Business Information
+*Extracting...*
+
+## 🧾 Line Items
+*Extracting...*
+
+## 🔗 Document Reference
+*Analyzing...*
+"""
+
+        payload = {
+            'title': title,
+            'document_content': {
+                'type': 'markdown',
+                'markdown': initial_content
+            }
+        }
+
+        response = requests.post(
+            'https://slack.com/api/canvases.create',
+            headers=headers,
+            json=payload
+        )
+
+        result = response.json()
+        if result.get('ok'):
+            canvas_id = result['canvas_id']
+            logger.info(f"Created canvas: {canvas_id}")
+
+            # Post link to canvas in thread
+            canvas_url = f"<slack://canvas/{canvas_id}|View Results Canvas>"
+            post_to_slack(channel, f"📊 {canvas_url}", thread_ts)
+
+            return canvas_id
+        else:
+            logger.error(f"Failed to create canvas: {result.get('error')}")
+            return None
+
+    except Exception as e:
+        logger.error(f"Canvas creation failed: {e}")
+        return None
+
+
+def update_canvas(canvas_id: str, content: str):
+    """Update a Slack Canvas with new content."""
+    try:
+        headers = {
+            'Authorization': f'Bearer {get_slack_token()}',
+            'Content-Type': 'application/json'
+        }
+
+        payload = {
+            'canvas_id': canvas_id,
+            'changes': [{
+                'operation': 'replace',
+                'document_content': {
+                    'type': 'markdown',
+                    'markdown': content
+                }
+            }]
+        }
+
+        response = requests.post(
+            'https://slack.com/api/canvases.edit',
+            headers=headers,
+            json=payload
+        )
+
+        result = response.json()
+        if result.get('ok'):
+            logger.info(f"Updated canvas: {canvas_id}")
+        else:
+            logger.error(f"Failed to update canvas: {result.get('error')}")
+
+    except Exception as e:
+        logger.error(f"Canvas update failed: {e}")
+
+
 class SlackProgressCallback(BaseCallbackHandler):
     """Callback to post agent progress to Slack."""
 
-    def __init__(self, channel: str, thread_ts: str):
+    def __init__(self, channel: str, thread_ts: str, canvas_id: str | None = None):
         self.channel = channel
         self.thread_ts = thread_ts
+        self.canvas_id = canvas_id
         self.tool_count = 0
         self.current_tool = None
         self.results = {}  # Accumulate structured results
@@ -137,7 +231,7 @@ class SlackProgressCallback(BaseCallbackHandler):
         )
 
     def _store_result(self, tool_name: str, data: any):
-        """Store tool results for final summary."""
+        """Store tool results for final summary and update canvas."""
         if tool_name == 'extract_document_text':
             self.results['md5_hash'] = data.get('md5_hash')
             self.results['num_pages'] = len(data.get('ocr_files', []))
@@ -155,6 +249,104 @@ class SlackProgressCallback(BaseCallbackHandler):
                 self.results['line_items'] = data
             else:
                 self.results['line_items'] = []
+
+        # Update canvas with latest results
+        if self.canvas_id:
+            canvas_content = self._build_canvas_content()
+            update_canvas(self.canvas_id, canvas_content)
+
+    def _build_canvas_content(self) -> str:
+        """Build complete canvas markdown from accumulated results."""
+        lines = []
+
+        # Header
+        doc_type = self.results.get('document_type', 'Document')
+        lines.append(f"# 📄 {doc_type.title()} Analysis Results")
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        # Business Information Section
+        lines.append("## 🏢 Business Information")
+        lines.append("")
+
+        issuer = self.results.get('issuer')
+        if issuer:
+            lines.append(f"**Issuer:** {issuer}")
+        else:
+            lines.append("**Issuer:** *Extracting...*")
+
+        if doc_type and doc_type != 'Document':
+            lines.append(f"**Type:** {doc_type.title()}")
+        else:
+            lines.append("**Type:** *Analyzing...*")
+
+        service_date = self.results.get('service_date')
+        if service_date:
+            lines.append(f"**Date:** {service_date}")
+        else:
+            lines.append("**Date:** *Extracting...*")
+
+        lines.append("")
+        lines.append("---")
+        lines.append("")
+
+        # Line Items Section
+        line_items = self.results.get('line_items', [])
+        if line_items:
+            total = sum(item.get('total', 0) for item in line_items if isinstance(item.get('total'), (int, float)))
+            lines.append(f"## 🧾 Line Items ({len(line_items)} items, ${total:.2f} total)")
+            lines.append("")
+            lines.append("| Description | Qty | Unit Price | Total |")
+            lines.append("|-------------|-----|------------|-------|")
+
+            for item in line_items:
+                desc = item.get('description', 'Unknown')
+                qty = item.get('quantity', 1)
+                unit_price = item.get('unit_price', 0)
+                item_total = item.get('total', 0)
+
+                # Format currency
+                unit_price_str = f"${unit_price:.2f}" if isinstance(unit_price, (int, float)) else "-"
+                total_str = f"${item_total:.2f}" if isinstance(item_total, (int, float)) else "-"
+
+                lines.append(f"| {desc} | {qty} | {unit_price_str} | {total_str} |")
+
+            lines.append("")
+
+            # Summary
+            if total > 0:
+                lines.append("### 💰 Summary")
+                lines.append("")
+                lines.append(f"**Total: ${total:.2f}**")
+                lines.append("")
+        else:
+            lines.append("## 🧾 Line Items")
+            lines.append("")
+            lines.append("*Extracting line items...*")
+            lines.append("")
+
+        lines.append("---")
+        lines.append("")
+
+        # Document Reference
+        lines.append("## 🔗 Document Reference")
+        lines.append("")
+
+        md5_hash = self.results.get('md5_hash')
+        num_pages = self.results.get('num_pages')
+
+        if md5_hash:
+            lines.append(f"**MD5 Hash:** `{md5_hash}`")
+        else:
+            lines.append("**MD5 Hash:** *Processing...*")
+
+        if num_pages:
+            lines.append(f"**Pages:** {num_pages}")
+        else:
+            lines.append("**Pages:** *Analyzing...*")
+
+        return "\n".join(lines)
 
     def _format_tool_output(self, tool_name: str, data: any) -> str:
         """Format tool output based on tool type."""
@@ -424,8 +616,13 @@ def handler(event: dict[str, any], context: any) -> dict[str, any]:
         logger.info(f"Processing: {s3_key} with instruction: {user_instruction}")
 
         # Post to Slack if channel provided
+        canvas_id = None
         if channel_id and thread_ts:
             post_to_slack(channel_id, f"📋 *My Plan:*\n1. Extract text from document\n2. Classify document type\n3. Extract relevant fields based on type\n4. Return structured results", thread_ts)
+
+            # Create canvas for results
+            canvas_title = f"Analysis: {s3_key.split('/')[-1]}"
+            canvas_id = create_canvas(canvas_title, channel_id, thread_ts)
 
         # Create agent with Slack callback
         agent_executor = create_agent()
@@ -434,7 +631,7 @@ def handler(event: dict[str, any], context: any) -> dict[str, any]:
         callbacks = []
         slack_callback = None
         if channel_id and thread_ts:
-            slack_callback = SlackProgressCallback(channel_id, thread_ts)
+            slack_callback = SlackProgressCallback(channel_id, thread_ts, canvas_id)
             callbacks.append(slack_callback)
 
         # Format prompt
