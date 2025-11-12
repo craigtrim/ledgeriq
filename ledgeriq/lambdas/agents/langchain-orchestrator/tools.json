@@ -33,6 +33,14 @@
       "description": "Extract the service date from the document.\n\nArgs:\n    md5_hash: Document hash from extract_document_text\n\nReturns:\n    Service date as string (e.g., '2025-09-29')"
     },
     {
+      "name": "extract_issuer_address",
+      "url": "https://3gcrkwjhcztyz5pvokg7lnxr7q0uogsn.lambda-url.us-west-2.on.aws/",
+      "method": "GET",
+      "timeout": 30,
+      "input_param": "md5_hash",
+      "description": "Extract the business address from the document as it appears.\n\nArgs:\n    md5_hash: Document hash from extract_document_text\n\nReturns:\n    Business address as string (e.g., '123 Main St\\nAnytown, CA 90210')"
+    },
+    {
       "name": "extract_line_items",
       "url": "https://5aqdsptbkzsa4cskxwe7tguhti0wreid.lambda-url.us-west-2.on.aws/",
       "method": "GET",
