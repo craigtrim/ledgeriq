@@ -317,11 +317,12 @@ class SlackProgressCallback(BaseCallbackHandler):
             total = sum(item.get('total', 0) for item in line_items if isinstance(item.get('total'), (int, float)))
             lines.append(f"## 🧾 Line Items ({len(line_items)} items, ${total:.2f} total)")
             lines.append("")
-            lines.append("| Description | Qty | Unit Price | Total |")
-            lines.append("|-------------|-----|------------|-------|")
+            lines.append("| Item | Qty | Unit Price | Total |")
+            lines.append("|------|-----|------------|-------|")
 
             for item in line_items:
-                desc = item.get('description', 'Unknown')
+                # Prefer label, fallback to description
+                label = item.get('label', item.get('description', 'Unknown'))
                 qty = item.get('quantity', 1)
                 unit_price = item.get('unit_price', 0)
                 item_total = item.get('total', 0)
@@ -330,7 +331,7 @@ class SlackProgressCallback(BaseCallbackHandler):
                 unit_price_str = f"${unit_price:.2f}" if isinstance(unit_price, (int, float)) else "-"
                 total_str = f"${item_total:.2f}" if isinstance(item_total, (int, float)) else "-"
 
-                lines.append(f"| {desc} | {qty} | {unit_price_str} | {total_str} |")
+                lines.append(f"| {label} | {qty} | {unit_price_str} | {total_str} |")
 
             lines.append("")
 

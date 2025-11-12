@@ -43,6 +43,7 @@ def normalize_line_item(item: dict[str, any]) -> dict[str, any] | None:
     Returns:
         Normalized item or None if invalid
     """
+    label = item.get('label')
     description = item.get('description')
     quantity = item.get('quantity')
     unit_price = item.get('unit_price')
@@ -81,6 +82,7 @@ def normalize_line_item(item: dict[str, any]) -> dict[str, any] | None:
             f"Calculated total as {total} for item: {description}")
 
     return {
+        'label': label.strip(),
         'description': description.strip(),
         'quantity': quantity,
         'unit_price': unit_price,
