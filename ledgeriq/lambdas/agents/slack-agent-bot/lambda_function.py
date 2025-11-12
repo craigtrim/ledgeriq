@@ -6,7 +6,6 @@ import json
 import logging
 import requests
 import boto3
-from typing import Dict, Any
 from logging import Logger
 
 
@@ -55,7 +54,7 @@ logger: logging.Logger = configure_logger(__name__)
 # Slack Helper Functions
 # ═══════════════════════════════════════════════════════════════════════════
 
-def post_slack_message(channel: str, text: str, thread_ts: str = None) -> Dict[str, Any]:
+def post_slack_message(channel: str, text: str, thread_ts: str = None) -> dict[str, any]:
     """
     Post a message to Slack.
 
@@ -89,7 +88,7 @@ def post_slack_message(channel: str, text: str, thread_ts: str = None) -> Dict[s
     return response.json()
 
 
-def get_file_info(file_id: str) -> Dict[str, Any]:
+def get_file_info(file_id: str) -> dict[str, any]:
     """Get file information from Slack API."""
     headers = {
         'Authorization': f'Bearer {get_slack_token()}'
@@ -140,7 +139,7 @@ def invoke_orchestrator(s3_key: str, instruction: str, channel_id: str, thread_t
 # Lambda Handler
 # ═══════════════════════════════════════════════════════════════════════════
 
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handler(event: dict[str, any], context: any) -> dict[str, any]:
     """
     Lambda handler for Slack bot events.
 

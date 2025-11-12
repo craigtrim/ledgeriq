@@ -99,9 +99,8 @@ def generate_cache_key(md5_hash: str) -> str:
     Args:
         md5_hash: MD5 hash from input (used for directory structure and filename)
     """
-    h1 = md5_hash[:2]
-    h2 = md5_hash[2:]
-    cache_key = f"cache/{LAMBDA_NAME}/{h1}/{h2}/{md5_hash}.txt"
+    tokens: list[str] = md5_hash.split('-')
+    cache_key = f"cache/{LAMBDA_NAME}/{tokens[0]}/{tokens[1]}/{md5_hash}.json"
     logger.info(f"Generated cache key: {cache_key}")
     return cache_key
 
@@ -186,7 +185,8 @@ def collect_document_text(dates_results: list[list[str]], ocr_input_files: list[
             text = read_ocr_file(ocr_input_files[i])
             document_texts.append(text)
         else:
-            logger.info(f"Skipping page {i+1} (no dates): {ocr_input_files[i]}")
+            logger.info(
+                f"Skipping page {i+1} (no dates): {ocr_input_files[i]}")
 
     combined_text = '\n\n'.join(document_texts)
     logger.info(
@@ -324,7 +324,8 @@ def handler(event: dict[str, any], _) -> dict:
         allowed_dates = flatten_and_dedupe_dates(dates_results)
 
         if not allowed_dates:
-            logger.info("No dates found in dates_results, returning empty list")
+            logger.info(
+                "No dates found in dates_results, returning empty list")
             return {
                 'statusCode': 200,
                 'body': {

@@ -107,8 +107,8 @@ def read_ocr_text(ocr_files: list[str]) -> str:
 
 def generate_output_key(md5_hash: str) -> str:
     """Generate output S3 key for classification result."""
-    h1, h2 = md5_hash[:2], md5_hash[2:]
-    output_key = f"classify-document-type/{h1}/{h2}/{md5_hash}.json"
+    tokens: list[str] = md5_hash.split('-')
+    output_key = f"classify-document-type/{tokens[0]}/{tokens[1]}/{md5_hash}.json"
     logger.info(f"Generated output key: {output_key}")
     return output_key
 

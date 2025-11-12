@@ -5,9 +5,9 @@ annotated-types==0.7.0
 anyio==4.11.0
 attrs==25.4.0
 autopep8==2.3.2
-boto3==1.40.70
-botocore==1.40.70
-certifi==2025.10.5
+boto3==1.40.71
+botocore==1.40.71
+certifi==2025.11.12
 cfgv==3.4.0
 charset-normalizer==3.4.4
 colorama==0.4.6
@@ -25,6 +25,7 @@ identify==2.6.15
 idna==3.11
 iniconfig==2.3.0
 jmespath==1.0.1
+json_repair==0.53.0
 jsonpatch==1.33
 jsonpointer==3.0.0
 langchain==0.1.20
@@ -33,7 +34,7 @@ langchain-community==0.0.38
 langchain-core==0.1.53
 langchain-text-splitters==0.0.2
 langsmith==0.1.147
--e git+ssh://git@github.com/craigtrim/ledgeriq.git@652e9236b7a5d90baf036e47c42dc437f4c21ac8#egg=ledgeriq
+-e git+ssh://git@github.com/craigtrim/ledgeriq.git@4ba2829966e7488cdd943898c173d93f35b9d854#egg=ledgeriq
 marshmallow==3.26.1
 mccabe==0.7.0
 multidict==6.7.0

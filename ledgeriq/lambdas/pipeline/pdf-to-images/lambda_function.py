@@ -41,7 +41,6 @@ from pathlib import Path
 from logging import Logger
 from urllib.parse import unquote
 from pdf2image import convert_from_bytes
-from typing import Optional
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -230,7 +229,7 @@ def check_image_sizes(images: list[Image.Image]) -> bool:
     return True
 
 
-def convert_pdf_to_images(bytestream: BytesIO, initial_dpi: int = INITIAL_DPI) -> Optional[list[Image.Image]]:
+def convert_pdf_to_images(bytestream: BytesIO, initial_dpi: int = INITIAL_DPI) -> list[Image.Image] | None:
     """
     Convert PDF to images with adaptive DPI reduction if needed.
 

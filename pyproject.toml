@@ -61,7 +61,7 @@ pre-commit = "^3.8.0"
 autopep8 = "^2.3.1"
 flakeheaven = "*"
 plac = "^1.4.3"
-
+json_repair = "*"
 
 [tool.pytest.ini_options]
 markers = ["network: tests that make real HTTP requests"]

@@ -99,9 +99,8 @@ def generate_cache_key(md5_hash: str) -> str:
     Args:
         md5_hash: MD5 hash from input (used for directory structure and filename)
     """
-    h1 = md5_hash[:2]
-    h2 = md5_hash[2:]
-    cache_key = f"cache/{LAMBDA_NAME}/{h1}/{h2}/{md5_hash}.txt"
+    tokens: list[str] = md5_hash.split('-')
+    cache_key = f"cache/{LAMBDA_NAME}/{tokens[0]}/{tokens[1]}/{md5_hash}.json"
     logger.info(f"Generated cache key: {cache_key}")
     return cache_key
 
