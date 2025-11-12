@@ -261,6 +261,14 @@ class SlackProgressCallback(BaseCallbackHandler):
                 self.results['service_date'] = data[0]
             elif isinstance(data, dict):
                 self.results['service_date'] = data.get('service_date', data.get('date'))
+        elif tool_name == 'extract_issuer_address':
+            if isinstance(data, str):
+                self.results['issuer_address'] = data
+            elif isinstance(data, list) and data:
+                self.results['issuer_address'] = data[0]
+            elif isinstance(data, dict):
+                address = data.get('issuer_address') or data.get('body', {}).get('results', {}).get('issuer_address')
+                self.results['issuer_address'] = address if address else None
         elif tool_name == 'extract_line_items':
             # Handle different possible structures
             if isinstance(data, dict):
@@ -295,6 +303,14 @@ class SlackProgressCallback(BaseCallbackHandler):
             lines.append(f"**Issuer:** {issuer}")
         else:
             lines.append("**Issuer:** *Extracting...*")
+
+        # Address - handle None gracefully
+        if 'issuer_address' in self.results:
+            address = self.results['issuer_address']
+            if address:
+                lines.append(f"**Address:** {address}")
+            else:
+                lines.append("**Address:** *No address found*")
 
         if doc_type and doc_type != 'Document':
             lines.append(f"**Type:** {doc_type.title()}")
@@ -403,6 +419,22 @@ class SlackProgressCallback(BaseCallbackHandler):
             date = data if isinstance(data, str) else data.get('service_date', data.get('date', 'unknown'))
             return f"📅 `{date}`"
 
+        # extract_issuer_address
+        elif tool_name == 'extract_issuer_address':
+            if isinstance(data, str):
+                address = data
+            elif isinstance(data, dict):
+                address = data.get('issuer_address') or data.get('body', {}).get('results', {}).get('issuer_address')
+            else:
+                address = None
+
+            if address:
+                # Format multiline addresses nicely
+                address_display = address.replace('\n', ' · ')
+                return f"📍 `{address_display}`"
+            else:
+                return f"📍 *No address found*"
+
         # extract_line_items
         elif tool_name == 'extract_line_items':
             # Handle different possible structures
@@ -452,6 +484,15 @@ class SlackProgressCallback(BaseCallbackHandler):
         # Issuer
         if 'issuer' in self.results:
             lines.append(f"🏢 *{self.results['issuer']}*")
+
+        # Address
+        if 'issuer_address' in self.results:
+            address = self.results['issuer_address']
+            if address:
+                address_display = address.replace('\n', ' · ')
+                lines.append(f"📍 {address_display}")
+            else:
+                lines.append(f"📍 *No address found*")
 
         # Date
         if 'service_date' in self.results:
