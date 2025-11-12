@@ -39,15 +39,16 @@ logger: logging.Logger = configure_logger(__name__)
 # ═══════════════════════════════════════════════════════════════════════════
 
 def handler(event: dict, _) -> dict:
-    """API Gateway handler for extract-line-items Step Function.
+    """Lambda Function URL handler for extract-line-items Step Function.
 
-    Expects API Gateway GET request with query parameter: md5_hash
+    Supports both Lambda Function URL and API Gateway formats.
+    Expects GET request with query parameter: md5_hash
     """
     logger.info(f"🚀 Incoming Event: {event}")
 
     try:
-        # Extract md5_hash from API Gateway query parameters
-        query_params = event.get('queryStringParameters', {})
+        # Extract md5_hash from query parameters (supports both Function URL and API Gateway)
+        query_params = event.get('queryStringParameters', {}) or {}
         if not query_params:
             return {
                 'statusCode': 400,
