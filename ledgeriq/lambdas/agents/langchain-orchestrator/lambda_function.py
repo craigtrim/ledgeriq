@@ -6,7 +6,6 @@ import json
 import logging
 import requests
 import boto3
-from typing import Dict, Any, List, Optional
 from logging import Logger
 from pathlib import Path
 
@@ -50,7 +49,7 @@ def get_slack_token() -> str:
     return _cached_slack_token
 
 
-def post_to_slack(channel: str, text: str, thread_ts: Optional[str] = None):
+def post_to_slack(channel: str, text: str, thread_ts: str | None = None):
     """Post message to Slack channel/thread."""
     try:
         payload = {'channel': channel, 'text': text}
@@ -80,10 +79,13 @@ class SlackProgressCallback(BaseCallbackHandler):
         self.channel = channel
         self.thread_ts = thread_ts
         self.tool_count = 0
+        self.current_tool = None
+        self.results = {}  # Accumulate structured results
 
-    def on_tool_start(self, serialized: Dict[str, Any], input_str: str, **kwargs):
+    def on_tool_start(self, serialized: dict[str, any], input_str: str, **kwargs):
         """Post when tool starts."""
         tool_name = serialized.get('name', 'unknown')
+        self.current_tool = tool_name
         self.tool_count += 1
         post_to_slack(
             self.channel,
@@ -92,21 +94,179 @@ class SlackProgressCallback(BaseCallbackHandler):
         )
 
     def on_tool_end(self, output: str, **kwargs):
-        """Post when tool completes."""
-        # Truncate long outputs
-        summary = output[:100] + "..." if len(output) > 100 else output
+        """Post when tool completes with formatted output."""
+        try:
+            # Parse JSON output
+            data = json.loads(output)
+
+            # Store results for final summary
+            self._store_result(self.current_tool, data)
+
+            formatted = self._format_tool_output(self.current_tool, data)
+        except (json.JSONDecodeError, Exception) as e:
+            # Fallback for non-JSON or formatting errors
+            formatted = output[:100] + "..." if len(output) > 100 else output
+
         post_to_slack(
             self.channel,
-            f"✅ Completed: {summary}",
+            f"✅ Completed: {formatted}",
             self.thread_ts
         )
+
+    def on_tool_error(self, error: Exception, **kwargs):
+        """Post when tool encounters an error."""
+        error_msg = str(error)
+
+        # Extract cleaner error message for common cases
+        if "400 Client Error" in error_msg:
+            clean_msg = "Invalid request parameters"
+        elif "404 Not Found" in error_msg:
+            clean_msg = "Resource not found"
+        elif "500" in error_msg or "502" in error_msg or "503" in error_msg:
+            clean_msg = "Service temporarily unavailable"
+        elif "timeout" in error_msg.lower():
+            clean_msg = "Request timed out"
+        else:
+            # Truncate long error messages
+            clean_msg = error_msg[:200] if len(error_msg) > 200 else error_msg
+
+        post_to_slack(
+            self.channel,
+            f"❌ Error: {clean_msg}",
+            self.thread_ts
+        )
+
+    def _store_result(self, tool_name: str, data: any):
+        """Store tool results for final summary."""
+        if tool_name == 'extract_document_text':
+            self.results['md5_hash'] = data.get('md5_hash')
+            self.results['num_pages'] = len(data.get('ocr_files', []))
+        elif tool_name == 'classify_document_type':
+            self.results['document_type'] = data if isinstance(data, str) else data.get('type')
+        elif tool_name == 'extract_issuer_name':
+            self.results['issuer'] = data if isinstance(data, str) else data.get('issuer', data.get('issuer_name'))
+        elif tool_name == 'extract_service_date':
+            self.results['service_date'] = data if isinstance(data, str) else data.get('service_date', data.get('date'))
+        elif tool_name == 'extract_line_items':
+            # Handle different possible structures
+            if isinstance(data, dict):
+                self.results['line_items'] = data.get('body', data.get('line_items', []))
+            elif isinstance(data, list):
+                self.results['line_items'] = data
+            else:
+                self.results['line_items'] = []
+
+    def _format_tool_output(self, tool_name: str, data: any) -> str:
+        """Format tool output based on tool type."""
+
+        # extract_document_text
+        if tool_name == 'extract_document_text':
+            md5 = data.get('md5_hash', 'unknown')
+            num_pages = len(data.get('ocr_files', []))
+            return f"`{md5}` ({num_pages} page{'s' if num_pages != 1 else ''})"
+
+        # classify_document_type
+        elif tool_name == 'classify_document_type':
+            doc_type = data if isinstance(data, str) else data.get('type', 'unknown')
+            return f"📄 `{doc_type}`"
+
+        # extract_issuer_name
+        elif tool_name == 'extract_issuer_name':
+            issuer = data if isinstance(data, str) else data.get('issuer', data.get('issuer_name', 'unknown'))
+            return f"🏢 *{issuer}*"
+
+        # extract_service_date
+        elif tool_name == 'extract_service_date':
+            date = data if isinstance(data, str) else data.get('service_date', data.get('date', 'unknown'))
+            return f"📅 `{date}`"
+
+        # extract_line_items
+        elif tool_name == 'extract_line_items':
+            # Handle different possible structures
+            if isinstance(data, dict):
+                # Could be {"body": [...]} or {"line_items": [...]}
+                items = data.get('body', data.get('line_items', []))
+            elif isinstance(data, list):
+                # Direct array
+                items = data
+            else:
+                items = []
+
+            if not items:
+                return "No line items found"
+
+            # Format first few items
+            preview = []
+            for item in items[:3]:
+                desc = item.get('description', 'Unknown')
+                total = item.get('total', item.get('unit_price', 0))
+                preview.append(f"  • {desc}: ${total:.2f}" if isinstance(total, (int, float)) else f"  • {desc}")
+
+            result = f"{len(items)} item{'s' if len(items) != 1 else ''}\n" + "\n".join(preview)
+            if len(items) > 3:
+                result += f"\n  • ... and {len(items) - 3} more"
+            return result
+
+        # Default: show compact JSON
+        else:
+            compact = json.dumps(data, separators=(',', ':'))
+            if len(compact) > 100:
+                return f"```\n{json.dumps(data, indent=2)[:300]}...\n```"
+            return f"`{compact}`"
+
+    def get_summary(self) -> str:
+        """Generate concise, well-formatted summary of all extracted data."""
+        if not self.results:
+            return "No data extracted"
+
+        lines = []
+
+        # Header
+        doc_type = self.results.get('document_type', 'Document')
+        lines.append(f"*{doc_type.title()} Summary*")
+        lines.append("")
+
+        # Issuer
+        if 'issuer' in self.results:
+            lines.append(f"🏢 *{self.results['issuer']}*")
+
+        # Date
+        if 'service_date' in self.results:
+            lines.append(f"📅 {self.results['service_date']}")
+
+        # Line items
+        if 'line_items' in self.results and self.results['line_items']:
+            items = self.results['line_items']
+            lines.append("")
+            lines.append(f"🧾 *Line Items* ({len(items)} total)")
+
+            # Calculate total
+            total = sum(item.get('total', 0) for item in items if isinstance(item.get('total'), (int, float)))
+
+            # Show items
+            for item in items:
+                desc = item.get('description', 'Unknown')
+                qty = item.get('quantity')
+                item_total = item.get('total', item.get('unit_price', 0))
+
+                if qty and qty > 1:
+                    lines.append(f"  • {desc} × {qty}: ${item_total:.2f}" if isinstance(item_total, (int, float)) else f"  • {desc} × {qty}")
+                else:
+                    lines.append(f"  • {desc}: ${item_total:.2f}" if isinstance(item_total, (int, float)) else f"  • {desc}")
+
+            # Show total
+            if total > 0:
+                lines.append("")
+                lines.append(f"💰 *Total: ${total:.2f}*")
+
+        return "\n".join(lines)
 
 
 # ═══════════════════════════════════════════════════════════════════════════
 # Tool Loading
 # ═══════════════════════════════════════════════════════════════════════════
 
-def load_tools_config() -> List[Dict[str, Any]]:
+def load_tools_config() -> list[dict[str, any]]:
     """Load tool definitions from JSON file."""
     config_path = Path(__file__).parent / 'tools.json'
     with open(config_path, 'r') as f:
@@ -114,7 +274,7 @@ def load_tools_config() -> List[Dict[str, Any]]:
     return config['tools']
 
 
-def create_api_tool_function(tool_def: Dict[str, Any]):
+def create_api_tool_function(tool_def: dict[str, any]):
     """
     Create a callable function for an API tool from JSON definition.
 
@@ -131,9 +291,9 @@ def create_api_tool_function(tool_def: Dict[str, Any]):
         else:
             input_value = list(kwargs.values())[0]
 
-        # Strip whitespace from input (Claude may add newlines)
+        # Strip whitespace and quotes from input (Claude may add newlines and quotes)
         if isinstance(input_value, str):
-            input_value = input_value.strip()
+            input_value = input_value.strip().strip('"').strip("'")
 
         # Build params dict using input_param from config
         params = {tool_def['input_param']: input_value}
@@ -229,7 +389,7 @@ def create_agent() -> AgentExecutor:
 # Lambda Handler
 # ═══════════════════════════════════════════════════════════════════════════
 
-def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
+def handler(event: dict[str, any], context: any) -> dict[str, any]:
     """
     Lambda handler for LangChain document processing orchestrator.
 
@@ -272,8 +432,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         # Add Slack callback if channel provided
         callbacks = []
+        slack_callback = None
         if channel_id and thread_ts:
-            callbacks.append(SlackProgressCallback(channel_id, thread_ts))
+            slack_callback = SlackProgressCallback(channel_id, thread_ts)
+            callbacks.append(slack_callback)
 
         # Format prompt
         prompt = f"{user_instruction}\n\nDocument: {s3_key}"
@@ -283,11 +445,12 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
         logger.info(f"✅ Agent completed successfully")
 
-        # Post final results to Slack
-        if channel_id and thread_ts:
+        # Post final results to Slack using structured summary
+        if channel_id and thread_ts and slack_callback:
+            summary = slack_callback.get_summary()
             post_to_slack(
                 channel_id,
-                f"✨ *Complete!*\n\n```\n{json.dumps(result['output'], indent=2)}\n```",
+                f"✨ *Complete!*\n\n{summary}",
                 thread_ts
             )
 
@@ -295,18 +458,30 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             'statusCode': 200,
             'body': json.dumps({
                 'success': True,
-                'result': result['output']
+                'result': slack_callback.results if slack_callback else result['output']
             })
         }
 
     except Exception as e:
         logger.error(f"Handler failed: {str(e)}", exc_info=True)
 
-        # Post error to Slack if channel provided
+        # Create user-friendly error message
+        error_msg = str(e)
+        if "timeout" in error_msg.lower():
+            friendly_msg = "Processing timed out. The document may be too large or complex."
+        elif "404" in error_msg or "not found" in error_msg.lower():
+            friendly_msg = "Document not found. Please check the file path."
+        elif "400" in error_msg or "bad request" in error_msg.lower():
+            friendly_msg = "Invalid request. Please check the document format."
+        else:
+            # Truncate technical errors
+            friendly_msg = f"Processing failed: {error_msg[:150]}"
+
+        # Post friendly error to Slack if channel provided
         if 'channel_id' in locals() and 'thread_ts' in locals() and channel_id and thread_ts:
             post_to_slack(
                 channel_id,
-                f"❌ *Error:* {str(e)}",
+                f"❌ *Processing Failed*\n\n{friendly_msg}\n\nPlease try again or contact support if the issue persists.",
                 thread_ts
             )
 
