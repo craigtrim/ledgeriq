@@ -241,11 +241,26 @@ class SlackProgressCallback(BaseCallbackHandler):
             self.results['md5_hash'] = data.get('md5_hash')
             self.results['num_pages'] = len(data.get('ocr_files', []))
         elif tool_name == 'classify_document_type':
-            self.results['document_type'] = data if isinstance(data, str) else data.get('type')
+            if isinstance(data, str):
+                self.results['document_type'] = data
+            elif isinstance(data, list) and data:
+                self.results['document_type'] = data[0]
+            elif isinstance(data, dict):
+                self.results['document_type'] = data.get('type')
         elif tool_name == 'extract_issuer_name':
-            self.results['issuer'] = data if isinstance(data, str) else data.get('issuer', data.get('issuer_name'))
+            if isinstance(data, str):
+                self.results['issuer'] = data
+            elif isinstance(data, list) and data:
+                self.results['issuer'] = data[0]
+            elif isinstance(data, dict):
+                self.results['issuer'] = data.get('issuer', data.get('issuer_name'))
         elif tool_name == 'extract_service_date':
-            self.results['service_date'] = data if isinstance(data, str) else data.get('service_date', data.get('date'))
+            if isinstance(data, str):
+                self.results['service_date'] = data
+            elif isinstance(data, list) and data:
+                self.results['service_date'] = data[0]
+            elif isinstance(data, dict):
+                self.results['service_date'] = data.get('service_date', data.get('date'))
         elif tool_name == 'extract_line_items':
             # Handle different possible structures
             if isinstance(data, dict):
