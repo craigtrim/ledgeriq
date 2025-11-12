@@ -167,8 +167,10 @@ def validate_expansion(abbreviated_name: str, raw_response: str) -> str:
     Safeguards:
     1. Strip markdown formatting and extra whitespace
     2. Extract only the first line if multi-line response
-    3. Check length isn't unreasonably longer than input
-    4. Fallback to original if validation fails
+    3. Remove explanation phrases if they slip through
+    4. Discard if >100 chars (Bedrock went off the rails)
+    5. Warn if >50 chars (investigate if common)
+    6. Fallback to original if validation fails
 
     Args:
         abbreviated_name: Original abbreviated name
@@ -191,30 +193,28 @@ def validate_expansion(abbreviated_name: str, raw_response: str) -> str:
             first_line = first_line.split(phrase)[0].strip()
             break
 
-    # Validate length: expanded name shouldn't be more than 3x longer than input
-    # Also enforce max 50 characters (reasonable product name length)
-    max_length = min(len(abbreviated_name) * 3, 50)
-
-    if len(first_line) > max_length:
-        logger.warning(
-            f"Expanded name too long ({len(first_line)} chars): '{first_line}'. "
-            f"Using original: '{abbreviated_name}'"
-        )
-        return abbreviated_name
-
-    # Validate word count: should be 2-8 words (reasonable product name)
-    word_count = len(first_line.split())
-    if word_count > 8:
-        logger.warning(
-            f"Expanded name has too many words ({word_count}): '{first_line}'. "
-            f"Using original: '{abbreviated_name}'"
-        )
-        return abbreviated_name
-
     # If cleaned result is empty, use original
     if not first_line:
         logger.warning(f"Empty expansion result. Using original: '{abbreviated_name}'")
         return abbreviated_name
+
+    # Character threshold validation: when Bedrock goes off the rails, it goes BIG
+    char_count = len(first_line)
+
+    # Over 100 chars: definitely wrong, discard
+    if char_count > 100:
+        logger.warning(
+            f"Expanded name way too long ({char_count} chars): '{first_line}'. "
+            f"Using original: '{abbreviated_name}'"
+        )
+        return abbreviated_name
+
+    # Over 50 chars: suspicious but might be valid, keep it but log warning
+    if char_count > 50:
+        logger.warning(
+            f"Expanded name longer than expected ({char_count} chars): '{first_line}'. "
+            f"Keeping it but investigate if this becomes common."
+        )
 
     return first_line
 
