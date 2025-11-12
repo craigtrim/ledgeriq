@@ -323,15 +323,25 @@ class SlackProgressCallback(BaseCallbackHandler):
             for item in line_items:
                 # Prefer label, fallback to description
                 label = item.get('label', item.get('description', 'Unknown'))
-                qty = item.get('quantity', 1)
-                unit_price = item.get('unit_price', 0)
-                item_total = item.get('total', 0)
+                qty = item.get('quantity')
+                unit_price = item.get('unit_price')
+                item_total = item.get('total')
 
-                # Format currency
-                unit_price_str = f"${unit_price:.2f}" if isinstance(unit_price, (int, float)) else "-"
-                total_str = f"${item_total:.2f}" if isinstance(item_total, (int, float)) else "-"
+                # Format quantity (blank if None)
+                qty_str = str(qty) if qty is not None and isinstance(qty, (int, float)) else ""
 
-                lines.append(f"| {label} | {qty} | {unit_price_str} | {total_str} |")
+                # Format currency (blank if None or non-numeric)
+                if unit_price is not None and isinstance(unit_price, (int, float)):
+                    unit_price_str = f"${unit_price:.2f}"
+                else:
+                    unit_price_str = ""
+
+                if item_total is not None and isinstance(item_total, (int, float)):
+                    total_str = f"${item_total:.2f}"
+                else:
+                    total_str = ""
+
+                lines.append(f"| {label} | {qty_str} | {unit_price_str} | {total_str} |")
 
             lines.append("")
 
