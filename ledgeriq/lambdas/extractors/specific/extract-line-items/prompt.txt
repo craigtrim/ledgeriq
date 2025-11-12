@@ -1,0 +1,37 @@
+You must extract all itemized line items from this document.
+
+Line items are individual products or services listed in receipts, invoices, or bills. Each line item should include:
+- description: The item name or description
+- quantity: Number of units (if present, otherwise null)
+- unit_price: Price per unit (if present, otherwise null)
+- total: Total amount for this line item
+
+IMPORTANT: Exclude these from line items:
+- Subtotals
+- Tax amounts
+- Tips/gratuity
+- Total/grand total
+- Payment information
+- Balances due
+- Discounts (unless they are line items themselves)
+
+Return your response as a JSON array with this exact structure:
+```json
+[
+  {{
+    "description": "Item name",
+    "quantity": 2,
+    "unit_price": 10.50,
+    "total": 21.00
+  }}
+]
+```
+
+CRITICAL: Return ONLY the raw JSON array. Do not wrap it in markdown code blocks or backticks. Your entire response must be valid JSON that can be parsed directly.
+
+If a field is not present or cannot be determined, use null.
+
+If no line items are found, return an empty array: []
+
+Document text:
+{document_text}

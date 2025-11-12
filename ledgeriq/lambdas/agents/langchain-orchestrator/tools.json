@@ -31,6 +31,14 @@
       "timeout": 30,
       "input_param": "md5_hash",
       "description": "Extract the service date from the document.\n\nArgs:\n    md5_hash: Document hash from extract_document_text\n\nReturns:\n    Service date as string (e.g., '2025-09-29')"
+    },
+    {
+      "name": "extract_line_items",
+      "url": "https://8ovionk17c.execute-api.us-west-2.amazonaws.com/prod/extract_line_items_api_get",
+      "method": "GET",
+      "timeout": 60,
+      "input_param": "md5_hash",
+      "description": "Extract itemized line items from receipt or invoice.\n\nArgs:\n    md5_hash: Document hash from extract_document_text\n\nReturns:\n    JSON array of line items with description, quantity, unit_price, and total for each item"
     }
   ]
 }
