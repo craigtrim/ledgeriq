@@ -197,16 +197,22 @@ def collect_document_text(organizations_results: list[list[str]], ocr_input_file
 # Bedrock Issuer Name Extraction
 # ═══════════════════════════════════════════════════════════════════════════
 
-def extract_issuer_name(document_text: str, allowed_organizations: list[str]) -> dict:
+def extract_issuer_name(document_text: str, allowed_organizations: list[str], file_name: str | None = None) -> dict:
     """Extract issuer name using Bedrock Claude 4.5.
 
     Args:
         document_text: Combined text from all relevant OCR pages
         allowed_organizations: List of organizations that are allowed to be returned
+        file_name: Optional original PDF filename to provide additional context
 
     Returns:
         dict with 'issuer_name' (str) and 'error' keys
     """
+
+    # Append filename hint if available
+    if file_name:
+        document_text = f"{document_text}\n\nOriginal filename: {file_name}"
+        logger.info(f"Appended filename to document text: {file_name}")
 
     allowed_organizations_str = '\n'.join(allowed_organizations)
     prompt = PROMPT_TEMPLATE.format(
@@ -292,6 +298,11 @@ def handler(event: dict[str, any], _) -> dict:
                 'statusCode': 400,
                 'body': {'message': 'Missing or invalid ocr_input_files'}
             }
+
+        # Extract optional filename hint for improved accuracy
+        file_name: str | None = event.get('file_name')
+        if file_name:
+            logger.info(f"Original filename provided: {file_name}")
 
         # Check cache first
         cache_key = generate_cache_key(md5_hash)
@@ -384,7 +395,7 @@ def handler(event: dict[str, any], _) -> dict:
             }
 
         # Extract issuer name using Bedrock
-        extraction = extract_issuer_name(document_text, allowed_organizations)
+        extraction = extract_issuer_name(document_text, allowed_organizations, file_name)
 
         # Check for extraction errors
         if extraction['error']:
