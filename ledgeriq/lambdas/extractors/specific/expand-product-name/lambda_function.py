@@ -147,7 +147,10 @@ def expand_product_name_with_bedrock(abbreviated_name: str) -> str:
 
         # Parse response
         response_body = loads(response['body'].read())
-        expanded_name = response_body['content'][0]['text'].strip()
+        raw_response = response_body['content'][0]['text'].strip()
+
+        # Validate and clean the response
+        expanded_name = validate_expansion(abbreviated_name, raw_response)
 
         logger.info(f"✨ Expanded '{abbreviated_name}' → '{expanded_name}'")
         return expanded_name
@@ -155,6 +158,65 @@ def expand_product_name_with_bedrock(abbreviated_name: str) -> str:
     except Exception as e:
         logger.error(f"Bedrock invocation failed: {str(e)}", exc_info=True)
         raise
+
+
+def validate_expansion(abbreviated_name: str, raw_response: str) -> str:
+    """
+    Validate and clean the expanded product name.
+
+    Safeguards:
+    1. Strip markdown formatting and extra whitespace
+    2. Extract only the first line if multi-line response
+    3. Check length isn't unreasonably longer than input
+    4. Fallback to original if validation fails
+
+    Args:
+        abbreviated_name: Original abbreviated name
+        raw_response: Raw response from Bedrock
+
+    Returns:
+        Validated expanded name (or original if invalid)
+    """
+    # Remove markdown formatting
+    cleaned = raw_response.replace('**', '').replace('*', '')
+
+    # Take only the first line (ignore explanations)
+    first_line = cleaned.split('\n')[0].strip()
+
+    # Remove common explanation phrases if they slipped through
+    explanation_phrases = ['However', 'Given', 'A more likely', 'It seems', 'This could be']
+    for phrase in explanation_phrases:
+        if phrase in first_line:
+            # Take everything before the explanation
+            first_line = first_line.split(phrase)[0].strip()
+            break
+
+    # Validate length: expanded name shouldn't be more than 3x longer than input
+    # Also enforce max 50 characters (reasonable product name length)
+    max_length = min(len(abbreviated_name) * 3, 50)
+
+    if len(first_line) > max_length:
+        logger.warning(
+            f"Expanded name too long ({len(first_line)} chars): '{first_line}'. "
+            f"Using original: '{abbreviated_name}'"
+        )
+        return abbreviated_name
+
+    # Validate word count: should be 2-8 words (reasonable product name)
+    word_count = len(first_line.split())
+    if word_count > 8:
+        logger.warning(
+            f"Expanded name has too many words ({word_count}): '{first_line}'. "
+            f"Using original: '{abbreviated_name}'"
+        )
+        return abbreviated_name
+
+    # If cleaned result is empty, use original
+    if not first_line:
+        logger.warning(f"Empty expansion result. Using original: '{abbreviated_name}'")
+        return abbreviated_name
+
+    return first_line
 
 
 def handler(event: dict[str, Any], _) -> dict:

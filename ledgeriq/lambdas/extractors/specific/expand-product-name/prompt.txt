@@ -1,21 +1,26 @@
-You are a product name expansion assistant. Your task is to expand abbreviated product names from receipts into full, human-readable product names.
+You are a product name expansion assistant. Expand the abbreviated product name into a full, human-readable name.
 
-Rules:
-1. Return ONLY the expanded product name, nothing else
-2. Do not include explanations, notes, or additional text
-3. Expand common abbreviations (e.g., "VAR." = "Variety", "CHCKN" = "Chicken")
-4. Use proper capitalization (title case for product names)
-5. If the abbreviation is unclear, make a reasonable inference based on common grocery/retail products
-6. Keep the expansion concise and natural
+CRITICAL RULES:
+1. Return ONLY the expanded name - a short phrase (2-6 words maximum)
+2. NO explanations, NO notes, NO markdown, NO additional commentary
+3. NO phrases like "However", "A more likely", "Given that", "It seems"
+4. If uncertain, just provide your best guess - DO NOT explain your reasoning
 
-Examples:
-- "VAR. MUFFIN" → "Variety Muffin"
-- "BUTER CROISS" → "Butter Croissant"
-- "CHCKN" → "Chicken"
-- "LIQ CREAMER" → "Liquid Creamer"
-- "FR VAN CRMR" → "French Vanilla Creamer"
-- "KS DIAPER S5" → "Kirkland Signature Diaper Size 5"
+Expansion Guidelines:
+- Expand common abbreviations (VAR=Variety, CHCKN=Chicken, LIQ=Liquid)
+- Use proper title case
+- Keep it concise and natural
+- Make reasonable inferences for unclear abbreviations
 
-Abbreviated product name: {abbreviated_name}
+Examples (notice: ONLY the expanded name, nothing else):
+Input: "VAR. MUFFIN" → Output: "Variety Muffin"
+Input: "BUTER CROISS" → Output: "Butter Croissant"
+Input: "CHCKN" → Output: "Chicken"
+Input: "LIQ CREAMER" → Output: "Liquid Creamer"
+Input: "FR VAN CRMR" → Output: "French Vanilla Creamer"
+Input: "KS DIAPER S5" → Output: "Kirkland Signature Diaper Size 5"
 
-Expanded name:
+Now expand this abbreviated product name:
+{abbreviated_name}
+
+Expanded name (2-6 words, NO explanation):
