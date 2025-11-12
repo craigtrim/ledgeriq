@@ -102,9 +102,11 @@ def create_canvas(title: str, channel: str, thread_ts: str) -> str | None:
             'document_content': {
                 'type': 'markdown',
                 'markdown': initial_content
-            }
+            },
+            'channel_id': channel  # Automatically add canvas to channel tab
         }
 
+        logger.info(f"Attempting to create canvas with title: {title} in channel: {channel}")
         response = requests.post(
             'https://slack.com/api/canvases.create',
             headers=headers,
@@ -112,21 +114,24 @@ def create_canvas(title: str, channel: str, thread_ts: str) -> str | None:
         )
 
         result = response.json()
+        logger.info(f"Canvas API response: {json.dumps(result)}")
+
         if result.get('ok'):
             canvas_id = result['canvas_id']
             logger.info(f"Created canvas: {canvas_id}")
 
-            # Post link to canvas in thread
-            canvas_url = f"<slack://canvas/{canvas_id}|View Results Canvas>"
-            post_to_slack(channel, f"📊 {canvas_url}", thread_ts)
+            # Post notification that canvas is in channel tab
+            post_to_slack(channel, f"📊 Results canvas created! View it in the channel's **Canvas** tab above.", thread_ts)
 
             return canvas_id
         else:
-            logger.error(f"Failed to create canvas: {result.get('error')}")
+            error = result.get('error', 'unknown')
+            error_detail = result.get('response_metadata', {})
+            logger.error(f"Canvas creation failed - Error: {error}, Detail: {json.dumps(error_detail)}")
             return None
 
     except Exception as e:
-        logger.error(f"Canvas creation failed: {e}")
+        logger.error(f"Canvas creation exception: {str(e)}", exc_info=True)
         return None
 
 
@@ -620,9 +625,21 @@ def handler(event: dict[str, any], context: any) -> dict[str, any]:
         if channel_id and thread_ts:
             post_to_slack(channel_id, f"📋 *My Plan:*\n1. Extract text from document\n2. Classify document type\n3. Extract relevant fields based on type\n4. Return structured results", thread_ts)
 
-            # Create canvas for results
+            # Create canvas for results - FAIL FAST if it doesn't work
             canvas_title = f"Analysis: {s3_key.split('/')[-1]}"
             canvas_id = create_canvas(canvas_title, channel_id, thread_ts)
+
+            if not canvas_id:
+                error_msg = "❌ *Canvas Creation Failed*\n\nCannot create Slack Canvas. Check bot permissions and CloudWatch logs for details."
+                post_to_slack(channel_id, error_msg, thread_ts)
+                logger.error("Canvas creation failed - exiting")
+                return {
+                    'statusCode': 500,
+                    'body': json.dumps({
+                        'success': False,
+                        'error': 'Canvas creation failed'
+                    })
+                }
 
         # Create agent with Slack callback
         agent_executor = create_agent()
@@ -642,12 +659,11 @@ def handler(event: dict[str, any], context: any) -> dict[str, any]:
 
         logger.info(f"✅ Agent completed successfully")
 
-        # Post final results to Slack using structured summary
-        if channel_id and thread_ts and slack_callback:
-            summary = slack_callback.get_summary()
+        # Post completion message directing to canvas
+        if channel_id and thread_ts:
             post_to_slack(
                 channel_id,
-                f"✨ *Complete!*\n\n{summary}",
+                "✨ *Complete!* View all results in the Canvas tab above.",
                 thread_ts
             )
 
